@@ -112,7 +112,7 @@ sub maxpix
 {
     my %uopts = @_;
 
-    my $opts = PDL::Options->new( { dims   => [512, 512],    # output dimensions
+    my $opts = PDL::Options->new( { shape   => 512,   # output dimensions
 				    center => undef,  # initial center
 				    coords => undef,  # coordinate data
 				    weight => undef,  # data weight
@@ -169,7 +169,7 @@ sub maxpix
     barf( "cannot handle input data other than two dimensions\n" )
       if $ndim != 2;
 
-    my $dims = pdl( _sclr_or_arr( 'dims', $opt->{dims}, $ndim ) );
+    my $shape = pdl( _sclr_or_arr( 'shape', $opt->{shape}, $ndim ) );
 
     my @center;
     @center = _sclr_or_arr( 'center', $opt->{center}, $ndim )
@@ -186,7 +186,7 @@ sub maxpix
     while( 1 ) {
 
 	my %opts;
-	@opts{'xpix','ypix'} = $dims->list;
+	@opts{'xpix','ypix'} = $shape->list;
 
 	@opts{'xc','yc'} = @center
 	  if @center;
@@ -199,10 +199,10 @@ sub maxpix
 
 	last if ! defined $opt->{minmax} || $max > $opt->{minmax};
 
-	$dims = ( $dims * $shrink)->floor;
+	$shape = ( $shape * $shrink)->floor;
 
 	barf( __PACKAGE__ . "::maxpix: image shrunk too far\n" )
-	  if $dims->max <= 1;
+	  if $shape->max <= 1;
     }
 
     my $xfrm = PDL::Transform::t_fits( $image );
