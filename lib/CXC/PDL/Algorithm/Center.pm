@@ -116,7 +116,7 @@ sub maxpix
 				    center => undef,  # initial center
 				    coords => undef,  # coordinate data
 				    weight => undef,  # data weight
-				    shrink => 0.5,    # shrinkage factor
+				    shrink => 0.75,   # shrinkage factor
 				    minmax => undef,  # optional, minimum value for max pixel
 				  }
 
@@ -176,6 +176,9 @@ sub maxpix
       if defined $opt->{center};
 
     my $shrink = pdl( _sclr_or_arr( 'shrink', $opt->{shrink}, $ndim ) );
+
+    barf( "illegal shrink factor:  must be 0 < shrink < 1\n" )
+      unless $shrink->min > 0 and $shrink->max < 1;
 
     require Img2D::Events;
     require PDL::Image2D;
