@@ -127,8 +127,6 @@ sub maxpix
     barf( "must specify one of coords or weight\n" )
       unless defined $opt->{coords} or defined $opt->{weight};
 
-    my $is_sparse = defined $opt->{coords} && ! defined $opt->{weight};
-
     my $data;
     my $ndim;
 
