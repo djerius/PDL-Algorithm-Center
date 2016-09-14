@@ -523,7 +523,6 @@ sub sigma_clip
     $opt->{log} && $opt->{log}->( $iterations[-1] );
 
     my $done = 0;
-    $DB::single = 1;
     while ( $opt->{iterlim}-- && ! $done )
     {
 	$iter++;
