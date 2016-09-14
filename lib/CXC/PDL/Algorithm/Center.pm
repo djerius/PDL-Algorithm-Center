@@ -374,13 +374,15 @@ sub sigma_clip
     barf( "must specify one of coords or weight\n" )
       unless defined $opt->{coords} or defined $opt->{weight};
 
-    # flag indicating sparse or compact data
-    my $is_sparse = defined $opt->{coords} && ! defined $opt->{weight};
+    # sparse data means coords or coords + weight
+    # dense  data means weight only
+    my $is_sparse;
 
     my $data;
 
     if ( defined $opt->{coords} )
     {
+	$is_sparse = 1;
 	$data = $opt->{coords};
 
 	# if we're passed an array, there is one 1D piddles per coordinate
@@ -410,6 +412,7 @@ sub sigma_clip
 
     else {
 
+	$is_sparse = 0;
 	$ndim = $opt->{weight}->dims;
 	$opt->{coords} = $opt->{weight};
     }
