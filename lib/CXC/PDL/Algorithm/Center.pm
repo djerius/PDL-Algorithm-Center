@@ -25,9 +25,9 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = '0.01';
+our $VERSION = '0.01_02';
 
-use parent 'Exporter';
+use Exporter 'import';
 
 our @EXPORT_OK = qw[ maxpix sigma_clip ];
 
@@ -35,6 +35,18 @@ use PDL;
 use PDL::Options;
 
 ## no critic (ProhibitAccessOfPrivateData)
+
+=pod
+
+
+=head1 CXC::PDL::Algorithm::Center
+
+Various methods of finding the center of a sample
+
+=head1 FUNCTIONS
+
+=cut
+
 
 sub _sclr_or_arr {
 
@@ -64,7 +76,6 @@ sub _sclr_or_arr {
     return @value;
 }
 
-
 # ============================================================
 
 =pod
@@ -73,36 +84,56 @@ sub _sclr_or_arr {
 
 =for ref
 
-determine coordinates of maximum pixel of binned data
+Bin data and determine the coordinates of the pixel with the maximum value
 
-The input piddles are treated as sets coordinates and are binned into
-an image. The coordinates of the pixel with the largest value are
-returned.  The data may have weights.  It is currently limited
-to two-dimensional data sets.
+The input data (which may have weights) are binned into an image and the
+coordinates of the pixel with the maximum value are determined.  Coordinates
+must be specified as individual piddles, one per dimension.
 
 =for usage
 
-@coords = maxpix( @coords, \%options )
+  @coords = maxpix( %args )
+  $coords = maxpix( %args )
 
-=for options
+The available arguments are:
 
 =over
 
-=item shape
+=item coords=I<Perl array of 1D piddles>
 
-The shape of the image, in pixels.  If it is a scalar it is used for
-all dimensions.  Otherwise it should be a Perl array with the extents
-of each dimension.
-
-=item center
-
-The center of the image, in input coordinates.  If it is a scalar it
-is used for all dimensions.  Otherwise it should be a Perl array with
-the center of each dimension.
+The input coordinates.  This is an arrayref of 1D piddles, one per dimension.
+Required.
 
 =item weight
 
-If present, this is a piddle of weights for each coordinate tuple.
+An 1D piddle containing weights for each element in the data set. Optional.
+
+=item shape=I<Perl array>|I<scalar>
+
+The shape of the image, in pixels.  If it is a scalar it is used for
+all dimensions.  Otherwise it should be a Perl array with the extents
+of each dimension.  If not specified, a default shape of C<512, 512>
+is used.  Optional
+
+=item center=I<Perl array>|I<scalar>
+
+The center of the image, in input coordinates.  If it is a scalar it
+is used for all dimensions.  Otherwise it should be a Perl array with
+the center of each dimension.  if not specified the centroid of the
+data is used.  Optional
+
+=item minmax=I<floating point>
+
+If specified, the image is repeatedly shrunk by the factor specified
+by the C<shrink> option until the maximum valued pixel has a value at
+least as large as this.
+
+=item shrink=I<Perl array>|I<scalar>
+
+A multiplicative factor applied to the image extents if C<minmax> is
+specified.  C<shrink> may be a scalar, indicating uniform shrinkage,
+otherwise it should be an array of factors, one per dimension.
+It must be less than C<1>. It defaults to C<0.75>.
 
 =back
 
@@ -230,7 +261,7 @@ sub maxpix
 
 =for ref
 
-Center a dataset by performing interative sigma clipping.
+Center a dataset by performing iterative sigma clipping.
 
 Elements may be individually weighted.
 
