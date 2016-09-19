@@ -4,15 +4,16 @@ use inc::Module::Install;
 
 name 'CXC-PDL-Algorithm-Center';
 
+license 'gpl3';
+
+auto_license( holder => 'Smithsonian Astrophysical Observatory' );
+
 all_from 'lib/CXC/PDL/Algorithm/Center.pm';
 
-requires 'PDL';
-requires 'Img2D::Events';
-requires 'PDL::Image2D';
-requires 'PDL::Transform';
+readme_from;
+readme_from '', { format => 'md' };;
 
-build_requires 'Test::More';
-
-auto_install;
+author_tests( 'xt' );
+cpanfile;
 
 WriteAll;
