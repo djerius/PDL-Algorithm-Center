@@ -14,6 +14,6 @@ eval {
     my ( $xc, $yc ) = maxpix( coords => [$x, $y], minmax => 1000 );
 };
 
-ok( ! $@ );
+ok( ! $@ ) or diag $@;
 
 
