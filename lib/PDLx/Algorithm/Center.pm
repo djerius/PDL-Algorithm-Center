@@ -23,6 +23,9 @@ package PDLx::Algorithm::Center;
 
 use strict;
 use warnings;
+
+require 5.010000;
+
 use feature 'state';
 use Carp;
 
@@ -33,7 +36,6 @@ use custom::failures;
 use Package::Stash;
 
 use Validate::Tiny qw< validate is_required >;
-use Syntax::Keyword::Try 'try';
 use PDLx::Algorithm::Center::Validate;
 
 our $VERSION = '0.01';
@@ -390,7 +392,8 @@ The objects stringify to a failure message.
 
 =cut
 
-package PDLx::Algorithm::Center::sigma_clip::Iteration {
+{
+    package PDLx::Algorithm::Center::sigma_clip::Iteration;
 
     use Safe::Isa;
 
@@ -418,7 +421,8 @@ package PDLx::Algorithm::Center::sigma_clip::Iteration {
     }
 }
 
-package PDLx::Algorithm::Center::sigma_clip::Result {
+{
+    package PDLx::Algorithm::Center::sigma_clip::Result; 
 
     use parent -norequire, 'PDLx::Algorithm::Center::sigma_clip::Iteration';
 
@@ -498,14 +502,13 @@ sub sigma_clip
 
                 # try and convert. if it doesn't it'll get picked up
                 # late in the check suite
-                try {
+                eval {
                     my $pdl = PDL::Core::topdl( $_[0] );
                     return $pdl if $pdl->isempty;
 
                     # make sure there's a real dimension
                     return $pdl->ndims == 0 ? $pdl->dummy( 0 ) : $pdl;
-                }
-                catch { }
+                };
 
                 return $_[0];
             },

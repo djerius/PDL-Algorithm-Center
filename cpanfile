@@ -9,7 +9,6 @@ requires 'Memoize';
 requires 'Package::Stash';
 requires 'Safe::Isa';
 requires 'Scalar::Util';
-requires 'Syntax::Keyword::Try';
 requires 'Validate::Tiny';
 
 on test => sub {
