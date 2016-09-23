@@ -8,14 +8,14 @@ use Test::More;
 use Test::Fatal;
 use Test::Deep;
 
-use CXC::PDL::Algorithm::Center qw[ sigma_clip ];
+use PDLx::Algorithm::Center qw[ sigma_clip ];
 
 use PDL;
 use PDL::GSL::RNG;
 
 
 sub eclass ($) {
-    return join( '::', 'CXC::PDL::Algorithm::Center::failure', @_ );
+    return join( '::', 'PDLx::Algorithm::Center', @_ );
 }
 
 # log iterations for debugging poiposes

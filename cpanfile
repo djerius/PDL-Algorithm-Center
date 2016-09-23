@@ -1,17 +1,16 @@
 #! perl
 
 requires 'PDL';
-requires 'Img2D::Events';
 requires 'PDL::Image2D';
 requires 'PDL::Transform';
 requires 'Ref::Util';
-requires 'custom::failures'
+requires 'custom::failures';
 requires 'Memoize';
 requires 'Package::Stash';
 requires 'Safe::Isa';
 requires 'Scalar::Util';
 requires 'Syntax::Keyword::Try';
-requires 'Validate::Tniy';
+requires 'Validate::Tiny';
 
 on test => sub {
 

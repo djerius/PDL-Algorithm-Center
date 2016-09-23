@@ -2,9 +2,9 @@
 #
 # Copyright (C) 2011 Smithsonian Astrophysical Observatory
 #
-# This file is part of CXC::PDL::Algorithm::Center
+# This file is part of PDLx::Algorithm::Center
 #
-# CXC::PDL::Algorithm::Center is free software: you can redistribute
+# PDLx::Algorithm::Center is free software: you can redistribute
 # it and/or modify it under the terms of the GNU General Public
 # License as published by the Free Software Foundation, either version
 # 3 of the License, or (at your option) any later version.
@@ -19,7 +19,7 @@
 #
 # -->8-->8-->8-->8--
 
-package CXC::PDL::Algorithm::Center;
+package PDLx::Algorithm::Center;
 
 use strict;
 use warnings;
@@ -34,13 +34,13 @@ use Package::Stash;
 
 use Validate::Tiny qw< validate is_required >;
 use Syntax::Keyword::Try 'try';
-use CXC::PDL::Algorithm::Center::Validate;
+use PDLx::Algorithm::Center::Validate;
 
-our $VERSION = '0.01_02';
+our $VERSION = '0.01';
 
 use Exporter 'import';
 
-our @EXPORT_OK = qw[ maxpix sigma_clip ];
+our @EXPORT_OK = qw[ sigma_clip ];
 
 use PDL;
 use PDL::Options;
@@ -58,15 +58,15 @@ BEGIN {
 		       iteration::empty
 		     >;
 
-    custom::failures->import( __PACKAGE__, map { 'failure::' . $_ } @failures );
+    custom::failures->import( __PACKAGE__, @failures );
 
     my $stash = Package::Stash->new( __PACKAGE__ );
 
     for my $failure ( @failures ) {
 
 	( my $name = $failure ) =~ s/::/_/g;
-	$stash->add_symbol( "&${name}_error", sub (@) { (__PACKAGE__ . "::failure::$failure")->throw( @_ ) } );
-	$stash->add_symbol( "&${name}", sub (@) { (__PACKAGE__ . "::failure::$failure")->new( @_ ) } );
+	$stash->add_symbol( "&${name}_error", sub (@) { (__PACKAGE__ . "::$failure")->throw( @_ ) } );
+	$stash->add_symbol( "&${name}", sub (@) { (__PACKAGE__ . "::$failure")->new( @_ ) } );
     }
 }
 
@@ -87,7 +87,7 @@ sub _error {
 
     }
 
-    ( __PACKAGE__ . "::failure::$type")->throw( @$msg );
+    ( __PACKAGE__ . "::$type")->throw( @$msg );
 
 }
 
@@ -97,251 +97,11 @@ sub _error {
 =pod
 
 
-=head1 CXC::PDL::Algorithm::Center
+=head1 PDLx::Algorithm::Center
 
 Various methods of finding the center of a sample
 
 =head1 FUNCTIONS
-
-=cut
-
-
-sub _sclr_or_arr {
-
-    my ( $param, $value, $ndims ) = @_;
-
-    return if ! defined $value;
-
-    if ( $value->$_isa( 'PDL' ) && ($value->isnull || $value->shape == pdl([$ndims]) ) ) {
-
-	return $value;
-
-    }
-    elsif ( is_arrayref( $value ) && @$value == $ndims )
-    {
-	return pdl( @$value );
-    }
-    elsif ( ! is_ref( $value ) )  {
-	return pdl( ( $value ) x $ndims );
-    }
-
-    parameter_error( "<$param> must be scalar or array/piddle with dimension $ndims\n" );
-
-}
-
-# ============================================================
-
-=pod
-
-=head2 maxpix
-
-=for ref
-
-Bin data and determine the coordinates of the pixel with the maximum value
-
-The input data (which may have weights) are binned into an
-N-dimensional data box and the coordinates of the pixel with the
-maximum value are determined.  Coordinates must be specified as
-individual piddles, one per dimension.
-
-Currently the data are limited to two dimensions.
-
-=for usage
-
-  # in array context, returns a list of the center coordinates
-  @coords = maxpix( %args );
-
-  # in scalar context, returns a hash
-  $hash = maxpix( %args );
-
-The available arguments are:
-
-=over
-
-=item coords=I<Perl array of 1D piddles>
-
-The input coordinates.  This is an arrayref of 1D piddles, one per dimension.
-Required.
-
-=item weight
-
-A 1D piddle containing weights for each element in the data set. Optional.
-
-=item shape=I<Perl array>|I<scalar>
-
-The shape of the image, in pixels.  If it is a scalar it is used for
-all dimensions.  Otherwise it should be a Perl array with the extents
-of each dimension.  If not specified, a default shape of C<512, 512>
-is used.  Optional.
-
-=item center=I<Perl array>|I<scalar>
-
-The center of the box, in input coordinates.  If it is a scalar it
-is used for all dimensions.  Otherwise it should be a Perl array with
-the center of each dimension.  if not specified the centroid of the
-data is used.  Optional.
-
-=item minmax=I<floating point>
-
-If specified, the image is repeatedly shrunk by the factor specified
-by the C<shrink> option until the maximum valued pixel has a value at
-least as large as this.  If this is impossible, an exception is thrown.
-
-=item shrink=I<Perl array>|I<scalar>
-
-A multiplicative factor applied to the image extents if C<minmax> is
-specified.  C<shrink> may be a scalar, indicating uniform shrinkage,
-otherwise it should be an array of factors, one per dimension.
-It must be less than C<1>. It defaults to C<0.75>.
-
-=back
-
-In list context B<max_pix> returns a Perl list of the coordinates.
-
-In scalar context, it returns a hashref with the following entries:
-
-=over
-
-=item box
-
-The generated N-dimensional box.
-
-=item pixpos
-
-The index of the pixel with the maximum value, as a 1D piddle.
-
-=item max
-
-The maximum value in the box.
-
-=item trans
-
-A B<PDL::Transform> transform which will transform from box
-coordinates to input coordinates.
-
-=item center
-
-The coordinates of the pixel with the maximum value, as a 1D piddle.
-
-=back
-
-=cut
-
-sub maxpix
-{
-    my %uopts = @_;
-
-    my $opts = PDL::Options->new( { shape   => 512,   # output dimensions
-				    center => PDL->null,  # initial center
-				    coords => undef,  # coordinate data
-				    weight => undef,  # data weight
-				    shrink => 0.75,   # shrinkage factor
-				    minmax => undef,  # optional, minimum value for max pixel
-				  }
-
-				);
-
-    my $opt = $opts->options( \%uopts );
-
-    parameter_missing_error( "must specify one of coords or weight\n" )
-      unless defined $opt->{coords} or defined $opt->{weight};
-
-    my $data;
-    my $ndim;
-
-    if ( defined $opt->{coords} )
-    {
-	$data = $opt->{coords};
-
-	# if we're passed an array, there is one 1D piddle per coordinate
-	if ( 'ARRAY' eq ref $data )
-	{
-	    # these are data indices; must be 1D
-	    parameter_dimension_error( "coordinates must be 1D!\n" )
-	      if grep { $_->dims > 1 } @$data;
-
-	    parameter_dimension_error( "inconsistent extent of indices\n" )
-	      if grep { $_->nelem != $data->[0]->nelem } @$data;
-
-	    parameter_dimension_error( "weight must have same shape as data\n" )
-	      if defined $opt->{weight} &&
-		(    $opt->{weight}->dims != 1
-		  || $opt->{weight}->nelem != $data->[0]->nelem );
-
-	    $ndim = @$data;
-	}
-
-	# eventually this will be a piddle of coordinate tuples
-	else
-	{
-	    parameter_type_error( "single piddle of coordinates is not yet supported\n" );
-	}
-    }
-
-    else {
-
-	parameter_type_error( "dense data is not yet supported\n" );
-
-    }
-
-
-    parameter_dimension_error( "cannot handle input data other than two dimensions\n" )
-      if $ndim != 2;
-
-    my $shape = _sclr_or_arr( 'shape', $opt->{shape}, $ndim );
-
-    my $center = _sclr_or_arr( 'center', $opt->{center}, $ndim );
-
-    my $shrink = _sclr_or_arr( 'shrink', $opt->{shrink}, $ndim );
-
-    parameter_value_error( "illegal shrink factor:  must be 0 < shrink < 1\n" )
-      unless $shrink->min > 0 and $shrink->max < 1;
-
-    require Img2D::Events;
-    require PDL::Image2D;
-    require PDL::Transform;
-
-    my ( $image, $max, $ix, $iy );
-
-    while( 1 ) {
-
-	my %opts;
-	@opts{'xpix','ypix'} = $shape->list;
-
-	@opts{'xc','yc'} = $center->list
-	  unless $center->isnull;
-
-	$image = Img2D::Events->new( @$data, $opts->{weight} ? $opts->{weight} : (), \%opts )->img;
-
-	$image->hdr->{NAXIS} = 2;
-
-	( $max, $ix, $iy ) = $image->max2d_ind;
-
-	last if ! defined $opt->{minmax} || $max > $opt->{minmax};
-
-	$shape = ( $shape * $shrink)->floor;
-
-	barf( __PACKAGE__ . "::maxpix: image shrunk too far\n" )
-	  if $shape->max <= 1;
-    }
-
-    my $xfrm = PDL::Transform::t_fits( $image );
-
-    my $idx = cat( $ix, $iy );
-
-    my %results = ( box  => $image,
-		    pixpos => $idx,
-		    max    => $max,
-		    trans  => $xfrm,
-		    center => [$xfrm->apply( double($idx) )->list],
-		  );
-
-    return wantarray ? @{ $results{center} } : \%results;
-}
-
-# ============================================================
-
-=pod
 
 =head2 sigma_clip
 
@@ -465,10 +225,10 @@ The structure of the objects is described in L</Iteration Results>.
 It should return true if convergence has been achieved, false
 otherwise.
 
-C<is_converged> routine is passed references to the B<actual> objects
-used by B<sigma_clip> to keep track of the iterations.  This means
-that the C<is_converged> routine may manipulate the starting point for
-the next iteration by altering its C<$current> parameter.
+The C<is_converged> routine is passed references to the B<actual>
+objects used by B<sigma_clip> to keep track of the iterations.  This
+means that the C<is_converged> routine may manipulate the starting
+point for the next iteration by altering its C<$current> parameter.
 
 
 The default behavior is to stop if both the standard deviation and
@@ -494,15 +254,15 @@ closer than the specified distance.
 I<Optional>
 
 A subroutine which will be called at the end of each iteration. It is passed
-a copy of the current iteration's results hash see L</Iteration Results>).
+a copy of the current iteration's results object see L</Iteration Results>).
 
 
 =back
 
 =head3 Iteration Results
 
-The results for each iteration is stored as an object of class
-C<CXC::PDL::Algorithm::Center::sigma_clip::Iteration> with the
+The results for each iteration are stored in object of class
+C<PDLx::Algorithm::Center::sigma_clip::Iteration> with the
 following attributes/methods:
 
 =over
@@ -555,8 +315,8 @@ only if the default convergence routine is in use.
 =head3 Returned Results
 
 B<sigma_clip> returns an object of class
-C<CXC::PDL::Algorithm::Center::sigma_clip::Result>.  It is a subclass
-of C<CXC::PDL::Algorithm::Center::sigma_clip::Iteration> (the common
+C<PDLx::Algorithm::Center::sigma_clip::Result>.  It is a subclass
+of C<PDLx::Algorithm::Center::sigma_clip::Iteration> (the common
 attributes refer to the results of the final iteration) with these
 additional attributes/methods:
 
@@ -580,7 +340,7 @@ describing the failure.  See L</Errors>.
 
 =head3 Errors
 
-Errors are represented as objects constructed in the following classes:
+Errors are represented as objects in the following classes:
 
 =over
 
@@ -588,18 +348,18 @@ Errors are represented as objects constructed in the following classes:
 
 These are unconditionally thrown.
 
-  CXC::PDL::Algorithm::Center::failure::parameter
-  CXC::PDL::Algorithm::Center::failure::parameter::type
-  CXC::PDL::Algorithm::Center::failure::parameter::dimension
-  CXC::PDL::Algorithm::Center::failure::parameter::missing
-  CXC::PDL::Algorithm::Center::failure::parameter::value
+  PDLx::Algorithm::Center::parameter
+  PDLx::Algorithm::Center::parameter::type
+  PDLx::Algorithm::Center::parameter::dimension
+  PDLx::Algorithm::Center::parameter::missing
+  PDLx::Algorithm::Center::parameter::value
 
 =item Iteration
 
-These are stored in the result hash's C<error> field.
+These are stored in the result object's C<error> attribute.
 
-  CXC::PDL::Algorithm::Center::failure::iteration::limit_reached
-  CXC::PDL::Algorithm::Center::failure::iteration::empty
+  PDLx::Algorithm::Center::iteration::limit_reached
+  PDLx::Algorithm::Center::iteration::empty
 
 =back
 
@@ -607,7 +367,7 @@ The objects stringify to a failure message.
 
 =cut
 
-package CXC::PDL::Algorithm::Center::sigma_clip::Iteration {
+package PDLx::Algorithm::Center::sigma_clip::Iteration {
 
     use Safe::Isa;
 
@@ -635,9 +395,9 @@ package CXC::PDL::Algorithm::Center::sigma_clip::Iteration {
     }
 }
 
-package CXC::PDL::Algorithm::Center::sigma_clip::Result {
+package PDLx::Algorithm::Center::sigma_clip::Result {
 
-    use parent -norequire, 'CXC::PDL::Algorithm::Center::sigma_clip::Iteration';
+    use parent -norequire, 'PDLx::Algorithm::Center::sigma_clip::Iteration';
 
     use Class::Tiny qw(
 			iterations
@@ -945,7 +705,7 @@ sub sigma_clip
         };
 
         push @iteration,
-          CXC::PDL::Algorithm::Center::sigma_clip::Iteration->new(
+          PDLx::Algorithm::Center::sigma_clip::Iteration->new(
             center   => $center,
             iter     => @iteration + 0,
             nelem    => $nelem,
@@ -969,7 +729,7 @@ sub sigma_clip
     $error = iteration_limit_reached( msg => "iteration limit ($opt->{iterlim}) reached" )
       if ! $done && ! $error;
 
-    return CXC::PDL::Algorithm::Center::sigma_clip::Result->new(
+    return PDLx::Algorithm::Center::sigma_clip::Result->new(
         %{ $iteration[-1] },
         iterations => \@iteration,
         success    => $done,
@@ -1052,7 +812,7 @@ sub _sigma_clip_iter0 {
     # now the variance, which is wt*dist^2 / sum(wt);
     my $variance = ($wmask * $r2 )->dsum / $total_weight;
 
-    return CXC::PDL::Algorithm::Center::sigma_clip::Iteration->new( 
+    return PDLx::Algorithm::Center::sigma_clip::Iteration->new( 
         center => $center->copy,
         iter   =>  0,
         nelem  => $nelem,

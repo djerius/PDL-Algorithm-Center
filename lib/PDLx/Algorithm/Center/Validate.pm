@@ -1,4 +1,4 @@
-package CXC::PDL::Algorithm::Center::Validate;
+package PDLx::Algorithm::Center::Validate;
 
 use strict;
 use warnings;

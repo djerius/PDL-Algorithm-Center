@@ -3,7 +3,7 @@
 use Test::More tests => 1;
 
 BEGIN {
-  use_ok('CXC::PDL::Algorithm::Center');
+  use_ok('PDLx::Algorithm::Center');
 }
 
-diag( "Testing CXC::PDL::Algorithm::Center $CXC::PDL::Algorithm::Center::VERSION, Perl $], $^X" );
+diag( "Testing PDLx::Algorithm::Center $PDLx::Algorithm::Center::VERSION, Perl $], $^X" );
