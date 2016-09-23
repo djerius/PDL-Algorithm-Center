@@ -107,7 +107,7 @@ Various methods of finding the center of a sample
 
 =for ref
 
-Center a dataset by iteratively excluding data outside a specified number of standard deviations
+Center a dataset by iteratively excluding data outside of a radius equal to a specified number of standard deviations
 
 Elements may be individually weighted.
 
@@ -116,22 +116,45 @@ Elements may be individually weighted.
 Usage:
 
 
-  # $coords is a list of N piddles of shape M
-  #         or a piddle of shape NxM
-  # $weight is a piddle with shape M
-  # $mask   is a piddle with shape M
-  # $results are a hashref
-
   $results = sigma_clip( coords => $coords,
                          weight => $weight,
                          mask   => $mask,
                          %opts);
 
-  # $weight is a multidimensional piddle
-  # $results are a hashref
-
   $results = sigma_clip( weight => $img, %opts);
 
+
+B<sigma_clip> finds the center of a data set by:
+
+=over
+
+=item 1
+
+ignoring the data whose distance to the current center is a specified
+number of standard deviations
+
+=item 2
+
+calculating a new center by performing a (weighted) centroid of the
+remaining data
+
+=item 3
+
+calculating the standard deviation of the distance from the data to
+the center
+
+=item 4
+
+repeat at step 1 until either a convergence tolerance has been met or
+the iteration limit has been exceeded
+
+=back
+
+The initial center may be explicitly specified, or may be calculated
+by performing a (weighted) centroid of the data.
+
+The initial standard deviation is calculated using the initial center and either
+the entire dataset, or from a clipped region about the initial center.
 
 =head3 Options
 
@@ -834,3 +857,24 @@ sub _centroid
 
 1;
 
+__END__
+
+=pod
+
+=head1 AUTHOR
+
+Diab Jerius, E<lt>djerius@cpan.orgE<gt>
+
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2016 Smithsonian Astrophysical Observatory
+
+This software is released under the GNU General Public License.  You
+may find a copy at
+
+          http://www.gnu.org/licenses
+
+
+
+=cut
