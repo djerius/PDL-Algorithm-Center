@@ -107,8 +107,8 @@ B<sigma_clip> finds the center of a data set by:
 
 =item 1
 
-ignoring the data whose distance to the current center is a specified
-number of standard deviations
+ignoring the data whose distance to the current center is greater than
+a specified number of standard deviations
 
 =item 2
 
@@ -288,15 +288,14 @@ The combined weight of the data elements used to determine the center.
 
 =item C<sigma> => I<float|undef>
 
-The standard deviation of the data.
-The value for the last iteration will be
-undefined if all of the elements have been clipped.
+The standard deviation of the data.  The value for the last iteration
+will be undefined if all of the elements have been clipped.
 
 =item C<variance> => I<float|undef>
 
-The calculated variance (i.e., C<sqrt( sigma )>.
-The value for the last iteration will be
-undefined if all of the elements have been clipped.
+The calculated variance (i.e., C<sqrt( sigma )>.  The value for the
+last iteration will be undefined if all of the elements have been
+clipped.
 
 =item C<clip> => I<float|undef>
 
@@ -315,8 +314,8 @@ only if the default convergence routine is in use.
 =head3 Returned Results
 
 B<sigma_clip> returns an object of class
-C<PDLx::Algorithm::Center::sigma_clip::Result>.  It is a subclass
-of C<PDLx::Algorithm::Center::sigma_clip::Iteration> (the common
+C<PDLx::Algorithm::Center::sigma_clip::Result>.  It is a subclass of
+C<PDLx::Algorithm::Center::sigma_clip::Iteration> (the common
 attributes refer to the results of the final iteration) with these
 additional attributes/methods:
 
@@ -397,7 +396,7 @@ The objects stringify to a failure message.
 }
 
 {
-    package PDLx::Algorithm::Center::sigma_clip::Result; 
+    package PDLx::Algorithm::Center::sigma_clip::Result;
 
     use parent -norequire, 'PDLx::Algorithm::Center::sigma_clip::Iteration';
 
@@ -406,6 +405,15 @@ The objects stringify to a failure message.
                         success
                         error
     );
+
+}
+
+sub _upgrade_dims {
+
+    return
+          $_[0]->$_isa( 'PDL' )
+      && !$_[0]->isempty
+      && $_[0]->ndims == 0 ? $_[0]->dummy( 0 ) : $_[0];
 
 }
 
@@ -446,6 +454,8 @@ sub sigma_clip
             # single piddle of coordinate tuples
             coords => sub {
 
+                # convert if it's an array of piddles with dims <= 1
+                # all piddles must have the same number of elements
                 if (
                     is_arrayref( $_[0] )
                     && !grep {
@@ -461,13 +471,7 @@ sub sigma_clip
 
 
                 # make sure there's a real dimension
-                return $_[0]->dummy( 0 )
-                  if $_[0]->$_isa( 'PDL' )
-                  && !$_[0]->isempty
-                  && $_[0]->ndims == 0;
-
-
-                return $_[0];
+                return _upgrade_dims( $_[0] );
             },
 
 
@@ -482,21 +486,14 @@ sub sigma_clip
                     return $pdl if $pdl->isempty;
 
                     # make sure there's a real dimension
-                    return $pdl->ndims == 0 ? $pdl->dummy( 0 ) : $pdl;
+                    return _upgrade_dims( $pdl );
                 };
 
                 return $_[0];
             },
 
             # upgrade a non-empty piddle of 0 dimensions to 1 dimension
-            [ 'mask', 'weight' ] => sub {
-                return $_[0]->dummy( 0 )
-                  if $_[0]->$_isa( 'PDL' )
-                  && !$_[0]->isempty
-                  && $_[0]->ndims == 0;
-
-                $_[0];
-            }
+            [ 'mask', 'weight' ] => \&_upgrade_dims,
           ],
 
         checks => [
@@ -623,27 +620,24 @@ sub sigma_clip
 
     my $nvar = $opt->{nsigma} ** 2;
 
-    unless( defined $opt->{is_converged} ) {
+    $opt->{is_converged} //= sub {
 
-        $opt->{is_converged} = sub {
+        my ( $last, $current ) = @_;
 
-            my ( $last, $current ) = @_;
+        # stop if standard deviations and centers haven't changed
+        return 1 if $current->{sigma} == $last->{sigma}
+          && PDL::all( $current->{center} == $last->{center} );
 
-            # stop if standard deviations and centers haven't changed
-            return 1 if $current->{sigma} == $last->{sigma}
-              && PDL::all( $current->{center} == $last->{center} );
+        # or, if a tolerance was defined, stop if distance from old
+        # to new centers is less than the tolerance.
+        if ( defined $opt->{dtol} )
+          {
+              $current->{dist} = sqrt( ( ( $last->{center} - $current->{center} )**2 )->dsum );
+              return 1 if $current->{dist} <= $opt->{dtol};
+          }
 
-            # or, if a tolerance was defined, stop if distance from old
-            # to new centers is less than the tolerance.
-            if ( defined $opt->{dtol} )
-            {
-                $current->{dist} = sqrt( ( ( $last->{center} - $current->{center} )**2 )->dsum );
-                return 1 if $current->{dist} <= $opt->{dtol};
-            }
-
-            return 0;
-        }
-    }
+        return 0;
+    };
 
 
     #############################################################################
