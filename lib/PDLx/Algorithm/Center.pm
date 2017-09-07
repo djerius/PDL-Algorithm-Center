@@ -33,13 +33,13 @@ my @failures;
 BEGIN {
 
     my @failures = qw< parameter
-                       parameter::type
-                       parameter::dimension
-                       parameter::missing
-                       parameter::value
-                       iteration::limit_reached
-                       iteration::empty
-                     >;
+      parameter::type
+      parameter::dimension
+      parameter::missing
+      parameter::value
+      iteration::limit_reached
+      iteration::empty
+    >;
 
     custom::failures->import( __PACKAGE__, @failures );
 
@@ -48,8 +48,10 @@ BEGIN {
     for my $failure ( @failures ) {
 
         ( my $name = $failure ) =~ s/::/_/g;
-        $stash->add_symbol( "&${name}_error", sub (@) { (__PACKAGE__ . "::$failure")->throw( @_ ) } );
-        $stash->add_symbol( "&${name}", sub (@) { (__PACKAGE__ . "::$failure")->new( @_ ) } );
+        $stash->add_symbol( "&${name}_error",
+            sub (@) { ( __PACKAGE__ . "::$failure" )->throw( @_ ) } );
+        $stash->add_symbol( "&${name}",
+            sub (@) { ( __PACKAGE__ . "::$failure" )->new( @_ ) } );
     }
 }
 
@@ -59,18 +61,18 @@ sub _error {
 
     if ( is_arrayref( $_[0] ) ) {
 
-        $type = shift @{$_[0]};
-        $msg = $_[0];
+        $type = shift @{ $_[0] };
+        $msg  = $_[0];
     }
 
     else {
 
         $type = shift;
-        $msg = \@_;
+        $msg  = \@_;
 
     }
 
-    ( __PACKAGE__ . "::$type")->throw( @$msg );
+    ( __PACKAGE__ . "::$type" )->throw( @$msg );
 
 }
 
@@ -401,9 +403,9 @@ The objects stringify to a failure message.
     use parent -norequire, 'PDLx::Algorithm::Center::sigma_clip::Iteration';
 
     use Class::Tiny qw(
-                        iterations
-                        success
-                        error
+      iterations
+      success
+      error
     );
 
 }
@@ -411,34 +413,32 @@ The objects stringify to a failure message.
 sub _upgrade_dims {
 
     return
-          $_[0]->$_isa( 'PDL' )
+         $_[0]->$_isa( 'PDL' )
       && !$_[0]->isempty
       && $_[0]->ndims == 0 ? $_[0]->dummy( 0 ) : $_[0];
 
 }
 
-sub sigma_clip
-{
+sub sigma_clip {
     my %uopts = @_;
 
 
     #---------------------------------------------------------------
 
     # Options, first
-    my $opts = PDL::Options->new (
-                      {
-                       nsigma        => undef,
-                       clip          => undef,
-                       iterlim       => 10,
-                       center        => undef,
-                       dtol          => undef,
-                       mask          => undef,
-                       log           => undef,
-                       is_converged     => undef,
-                       coords        => undef,
-                       weight        => undef,
-                       transform     => undef,
-                      } );
+    my $opts = PDL::Options->new( {
+        nsigma       => undef,
+        clip         => undef,
+        iterlim      => 10,
+        center       => undef,
+        dtol         => undef,
+        mask         => undef,
+        log          => undef,
+        is_converged => undef,
+        coords       => undef,
+        weight       => undef,
+        transform    => undef,
+    } );
     $opts->add_synonym( { 'CENTRE' => 'CENTER' } );
 
     my $opt = $opts->options( \%uopts );
@@ -494,7 +494,7 @@ sub sigma_clip
 
             # upgrade a non-empty piddle of 0 dimensions to 1 dimension
             [ 'mask', 'weight' ] => \&_upgrade_dims,
-          ],
+        ],
 
         checks => [
 
@@ -505,7 +505,9 @@ sub sigma_clip
             iterlim => [ is_required, is_a_positive_integer ],
 
             # accept point PDL (ndims == 0 ), e.g. pdl(1)
-            center => is_a_ndim_PDL( 0, 1, "must be a 1D piddle or an array of numbers" ),
+            center => is_a_ndim_PDL(
+                0, 1, "must be a 1D piddle or an array of numbers"
+            ),
 
             transform => is_a( 'PDL::Transform' ),
 
@@ -528,11 +530,11 @@ sub sigma_clip
         ],
     };
 
-    my $result = validate($opt, $spec);
+    my $result = validate( $opt, $spec );
 
 
     # grab the first error that we get and throw on it
-    _error( ( values %{ $result->{error} })[0] )
+    _error( ( values %{ $result->{error} } )[0] )
       unless $result->{success};
 
 
@@ -544,7 +546,7 @@ sub sigma_clip
     # now, see what kind of data we have, and ensure that all dimensions
     # are consistent
 
-    my $ndim;                   # dimensions of the data
+    my $ndim;    # dimensions of the data
 
 
     # This starts out as a multiplicative combination of the input
@@ -556,21 +558,23 @@ sub sigma_clip
 
     if ( defined $coords ) {
 
-        $ndim = $coords->dims(0);
+        $ndim = $coords->dims( 0 );
 
         for my $name ( 'mask', 'weight' ) {
 
             my $value = $opt->{$name};
             next unless defined $value;
 
-            parameter_dimension_error( "<$name> must be a 1D piddle if <coords> is specified" )
+            parameter_dimension_error(
+                "<$name> must be a 1D piddle if <coords> is specified" )
               if $value->ndims != 1;
 
             my $nelem_c = $value->dim( -1 );
             my $nelem_p = $coords->dim( -1 );
 
-            parameter_dimension_error( "number of elements in <$name> ($nelem_p) ) must be the same as in <coords> ($nelem_c)" )
-              if $nelem_c != $nelem_p;
+            parameter_dimension_error(
+                "number of elements in <$name> ($nelem_p) ) must be the same as in <coords> ($nelem_c)"
+            ) if $nelem_c != $nelem_p;
         }
 
     }
@@ -580,7 +584,8 @@ sub sigma_clip
         $coords = $opt->{weight}->ndcoords( PDL::indx );
 
         parameter_dimension_error( "mask must have same shape as weight\n" )
-          if defined $opt->{mask} && $opt->{mask}->shape != $opt->{weight}->shape;
+          if defined $opt->{mask}
+          && $opt->{mask}->shape != $opt->{weight}->shape;
 
         $ndim = $opt->{weight}->ndims;
 
@@ -588,7 +593,7 @@ sub sigma_clip
 
     else {
 
-        parameter_missing_error( "must specify one of <coords> or <weight>" )
+        parameter_missing_error( "must specify one of <coords> or <weight>" );
     }
 
 
@@ -613,28 +618,29 @@ sub sigma_clip
         defined $wmask
           ? PDL::convert( $wmask != 0, PDL::double )
           : PDL->ones( PDL::double, $coords->dim( -1 ) );
-      };
+    };
 
     parameter_dimension_error( "<center> must have $ndim elements" )
       if defined $opt->{center} && $opt->{center}->nelem != $ndim;
 
-    my $nvar = $opt->{nsigma} ** 2;
+    my $nvar = $opt->{nsigma}**2;
 
     $opt->{is_converged} //= sub {
 
         my ( $last, $current ) = @_;
 
         # stop if standard deviations and centers haven't changed
-        return 1 if $current->{sigma} == $last->{sigma}
+        return 1
+          if $current->{sigma} == $last->{sigma}
           && PDL::all( $current->{center} == $last->{center} );
 
         # or, if a tolerance was defined, stop if distance from old
         # to new centers is less than the tolerance.
-        if ( defined $opt->{dtol} )
-          {
-              $current->{dist} = sqrt( ( ( $last->{center} - $current->{center} )**2 )->dsum );
-              return 1 if $current->{dist} <= $opt->{dtol};
-          }
+        if ( defined $opt->{dtol} ) {
+            $current->{dist}
+              = sqrt( ( ( $last->{center} - $current->{center} )**2 )->dsum );
+            return 1 if $current->{dist} <= $opt->{dtol};
+        }
 
         return 0;
     };
@@ -648,14 +654,15 @@ sub sigma_clip
 
     # storage to avoid more memory thrashing. will get allocated upon
     # first use
-    my $wmask = PDL->null;
-    my $r2 = PDL->null;
+    my $wmask   = PDL->null;
+    my $r2      = PDL->null;
     my $clipped = PDL->null;
 
     # Set up initial state
 
     push @iteration,
-      _sigma_clip_iter0( $mask_base, $coords, $opt->{center}, $opt->{weight}, $opt->{clip}, $wmask, $clipped );
+      _sigma_clip_iter0( $mask_base, $coords, $opt->{center}, $opt->{weight},
+        $opt->{clip}, $wmask, $clipped );
 
     $opt->{log} && $opt->{log}->( $iteration[-1]->copy );
 
@@ -685,7 +692,8 @@ sub sigma_clip
 
             if ( $total_weight == 0 ) {
 
-                $error = iteration_empty( msg => "no elements left after clip" );
+                $error
+                  = iteration_empty( msg => "no elements left after clip" );
                 ( undef, undef );
             }
 
@@ -702,7 +710,7 @@ sub sigma_clip
         push @iteration,
           PDLx::Algorithm::Center::sigma_clip::Iteration->new(
             center   => $center,
-            iter     => @iteration + 0,
+            iter     => @iteration +0,
             nelem    => $nelem,
             weight   => $total_weight,
             sigma    => defined $variance ? sqrt( $variance ) : undef,
@@ -718,11 +726,13 @@ sub sigma_clip
 
         $opt->{log} && $opt->{log}->( $iteration[-1]->copy );
 
-        last if ! $valid;
+        last if !$valid;
     }
 
-    $error = iteration_limit_reached( msg => "iteration limit ($opt->{iterlim}) reached" )
-      if ! $done && ! $error;
+    $error
+      = iteration_limit_reached(
+        msg => "iteration limit ($opt->{iterlim}) reached" )
+      if !$done && !$error;
 
     return PDLx::Algorithm::Center::sigma_clip::Result->new(
         %{ $iteration[-1] },
@@ -735,14 +745,15 @@ sub sigma_clip
 
 sub _sigma_clip_iter0 {
 
-    my ( $mask_base, $coords, $center, $weight, $clip, $wmask_storage, $clipped ) = @_;
+    my ( $mask_base, $coords, $center, $weight, $clip, $wmask_storage,
+        $clipped ) = @_;
 
     my $nelem = $mask_base->sum;
     my $wmask;
     my $total_weight;
 
     # get a weighted centroid if no center is specified
-    if ( ! defined $center ) {
+    if ( !defined $center ) {
 
         if ( defined $weight ) {
 
@@ -754,7 +765,7 @@ sub _sigma_clip_iter0 {
 
         else {
 
-            $wmask = $mask_base;
+            $wmask        = $mask_base;
             $total_weight = $nelem;
         }
 
@@ -762,7 +773,7 @@ sub _sigma_clip_iter0 {
     }
 
     # initial distances
-    my $r2 = ( ( $coords - $center)**2 )->dsumover;
+    my $r2 = ( ( $coords - $center )**2 )->dsumover;
 
 
     # initial clip radius. this defines $clip2, which will get
@@ -773,10 +784,10 @@ sub _sigma_clip_iter0 {
 
         $wmask = $wmask_storage;
 
-        $clip2 = $clip ** 2;
+        $clip2 = $clip**2;
 
         $clipped .= $r2 < $clip2;
-        $wmask .= $mask_base & $clipped;
+        $wmask   .= $mask_base & $clipped;
 
         $nelem = $total_weight = $wmask->sum;
 
@@ -798,33 +809,33 @@ sub _sigma_clip_iter0 {
 
         else {
 
-            $wmask = $mask_base;
+            $wmask        = $mask_base;
             $total_weight = $nelem;
 
         }
     }
 
     # now the variance, which is wt*dist^2 / sum(wt);
-    my $variance = ($wmask * $r2 )->dsum / $total_weight;
+    my $variance = ( $wmask * $r2 )->dsum / $total_weight;
 
-    return PDLx::Algorithm::Center::sigma_clip::Iteration->new( 
-        center => $center->copy,
-        iter   =>  0,
-        nelem  => $nelem,
-        weight => $total_weight,
+    return PDLx::Algorithm::Center::sigma_clip::Iteration->new(
+        center   => $center->copy,
+        iter     => 0,
+        nelem    => $nelem,
+        weight   => $total_weight,
         variance => $variance,
-        sigma  => sqrt( $variance ),
-        clip => defined $clip2 ? sqrt( $clip2 ) : undef,
+        sigma    => sqrt( $variance ),
+        clip     => defined $clip2 ? sqrt( $clip2 ) : undef,
     );
 
 }
 
 
-sub _centroid
-{
-  my ( $coords, $weight, $total_weight ) = @_;
+sub _centroid {
+    my ( $coords, $weight, $total_weight ) = @_;
 
-  return ( $coords * $weight->dummy(0) )->xchg(0,1)->dsumover / $total_weight ;
+    return ( $coords * $weight->dummy( 0 ) )->xchg( 0, 1 )->dsumover
+      / $total_weight;
 }
 
 1;
