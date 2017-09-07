@@ -3,14 +3,16 @@ package PDLx::Algorithm::Center::Validate;
 use strict;
 use warnings;
 
+our $VERSION = '0.01';
+
 use Exporter 'import';
 
 our @EXPORT = qw( is_a_positive_integer
-		   is_a_positive_number
-		   is_a_subroutine_reference
-		   is_a
-		   is_a_nonempty_PDL
-		   is_a_ndim_PDL
+                   is_a_positive_number
+                   is_a_subroutine_reference
+                   is_a
+                   is_a_nonempty_PDL
+                   is_a_ndim_PDL
 );
 
 use feature 'state';
@@ -23,10 +25,10 @@ use Scalar::Util 'looks_like_number';
 sub is_a_positive_number {
 
     state $sub = sub {
-	my $value = shift // return;
-	return if looks_like_number( $value ) && $value > 0;
-	return
-	  [ 'parameter::value', "<$_[1]> is not a positive number" ];
+        my $value = shift // return;
+        return if looks_like_number( $value ) && $value > 0;
+        return
+          [ 'parameter::value', "<$_[1]> is not a positive number" ];
     };
 
 }
@@ -34,9 +36,9 @@ sub is_a_positive_number {
 sub is_a_positive_integer {
 
     state $sub = sub {
-	my $value = shift // return;
-	return if looks_like_number( $value ) && $value > 0 && int($value) == $value;
-	return [ 'parameter::value', "<$_[1]> is not a positive integer" ];
+        my $value = shift // return;
+        return if looks_like_number( $value ) && $value > 0 && int($value) == $value;
+        return [ 'parameter::value', "<$_[1]> is not a positive integer" ];
     };
 }
 
@@ -44,9 +46,9 @@ sub is_a_positive_integer {
 sub is_a_subroutine_reference {
 
     state $sub = sub {
-	my $value = shift // return;
-	return if is_coderef( $value );
-	return [ "parameter::type",  "<$_[1]> must be a subroutine referenece" ];
+        my $value = shift // return;
+        return if is_coderef( $value );
+        return [ "parameter::type",  "<$_[1]> must be a subroutine referenece" ];
     };
 
 }
@@ -56,9 +58,9 @@ sub is_a {
     my $class = shift;
 
     return sub {
-	my $value = shift // return;
-	return if $value->$_isa( $class );
-	return [ 'parameter::type', "<$_[1]> must be an object of type <$class>" ] ;
+        my $value = shift // return;
+        return if $value->$_isa( $class );
+        return [ 'parameter::type', "<$_[1]> must be an object of type <$class>" ] ;
     };
 
 }
@@ -82,8 +84,8 @@ sub is_a_ndim_PDL {
         my $value = shift // return;
         return
              if $value->$_isa( 'PDL' )
-	  && ! $value->isnull
-	  && ! $value->isempty
+          && ! $value->isnull
+          && ! $value->isempty
           && ( ! defined $min || $value->ndims >= $min )
           && ( ! defined $max || $value->ndims <= $max );
 
@@ -96,9 +98,9 @@ sub is_a_nonempty_PDL {
 
     state $sub = sub {
 
-	my $value = shift // return;
-	return if $value->$_isa( 'PDL' ) && ! ( $value->isnull || $value->isempty );
-	return [ "parameter::type",  "<$_[1]> may not be empty or null" ];
+        my $value = shift // return;
+        return if $value->$_isa( 'PDL' ) && ! ( $value->isnull || $value->isempty );
+        return [ "parameter::type",  "<$_[1]> may not be empty or null" ];
 
     }
 }

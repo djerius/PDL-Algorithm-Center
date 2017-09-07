@@ -1,8 +1,14 @@
-# PDLx::Algorithm::Center
+# NAME
 
-Various methods of finding the center of a sample
+PDLx::Algorithm::Center - Various methods of finding the center of a sample
 
-# FUNCTIONS
+# VERSION
+
+version 0.01
+
+# SYNOPSIS
+
+# SUBROUTINES
 
 ## sigma\_clip
 
@@ -21,8 +27,8 @@ Usage:
 
 **sigma\_clip** finds the center of a data set by:
 
-1. ignoring the data whose distance to the current center is a specified
-number of standard deviations
+1. ignoring the data whose distance to the current center is greater than
+a specified number of standard deviations
 2. calculating a new center by performing a (weighted) centroid of the
 remaining data
 3. calculating the standard deviation of the distance from the data to
@@ -172,15 +178,14 @@ following attributes/methods:
 
 - `sigma` => _float|undef_
 
-    The standard deviation of the data.
-    The value for the last iteration will be
-    undefined if all of the elements have been clipped.
+    The standard deviation of the data.  The value for the last iteration
+    will be undefined if all of the elements have been clipped.
 
 - `variance` => _float|undef_
 
-    The calculated variance (i.e., `sqrt( sigma )`.
-    The value for the last iteration will be
-    undefined if all of the elements have been clipped.
+    The calculated variance (i.e., `sqrt( sigma )`.  The value for the
+    last iteration will be undefined if all of the elements have been
+    clipped.
 
 - `clip` => _float|undef_
 
@@ -197,8 +202,8 @@ following attributes/methods:
 ### Returned Results
 
 **sigma\_clip** returns an object of class
-`PDLx::Algorithm::Center::sigma_clip::Result`.  It is a subclass
-of `PDLx::Algorithm::Center::sigma_clip::Iteration` (the common
+`PDLx::Algorithm::Center::sigma_clip::Result`.  It is a subclass of
+`PDLx::Algorithm::Center::sigma_clip::Iteration` (the common
 attributes refer to the results of the final iteration) with these
 additional attributes/methods:
 
@@ -238,15 +243,19 @@ Errors are represented as objects in the following classes:
 
 The objects stringify to a failure message.
 
+# BUGS AND LIMITATIONS
+
+You can make new bug reports, and view existing ones, through the
+web interface at [https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center](https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center).
+
 # AUTHOR
 
-Diab Jerius, <djerius@cpan.org>
+Diab Jerius <djerius@cpan.org>
 
 # COPYRIGHT AND LICENSE
 
-Copyright 2016 Smithsonian Astrophysical Observatory
+This software is Copyright (c) 2017 by Smithsonian Astrophysical Observatory.
 
-This software is released under the GNU General Public License.  You
-may find a copy at
+This is free software, licensed under:
 
-          http://www.gnu.org/licenses
+    The GNU General Public License, Version 3, June 2007

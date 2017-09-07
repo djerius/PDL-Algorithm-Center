@@ -1,25 +1,6 @@
-# --8<--8<--8<--8<--
-#
-# Copyright (C) 2011 Smithsonian Astrophysical Observatory
-#
-# This file is part of PDLx::Algorithm::Center
-#
-# PDLx::Algorithm::Center is free software: you can redistribute
-# it and/or modify it under the terms of the GNU General Public
-# License as published by the Free Software Foundation, either version
-# 3 of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-# -->8-->8-->8-->8--
-
 package PDLx::Algorithm::Center;
+
+# ABSTRACT: Various methods of finding the center of a sample
 
 use strict;
 use warnings;
@@ -44,7 +25,7 @@ use Exporter 'import';
 
 our @EXPORT_OK = qw[ sigma_clip ];
 
-use PDL;
+use PDL::Lite;
 use PDL::Options;
 
 my @failures;
@@ -52,13 +33,13 @@ my @failures;
 BEGIN {
 
     my @failures = qw< parameter
-		       parameter::type
-		       parameter::dimension
-		       parameter::missing
-		       parameter::value
-		       iteration::limit_reached
-		       iteration::empty
-		     >;
+                       parameter::type
+                       parameter::dimension
+                       parameter::missing
+                       parameter::value
+                       iteration::limit_reached
+                       iteration::empty
+                     >;
 
     custom::failures->import( __PACKAGE__, @failures );
 
@@ -66,9 +47,9 @@ BEGIN {
 
     for my $failure ( @failures ) {
 
-	( my $name = $failure ) =~ s/::/_/g;
-	$stash->add_symbol( "&${name}_error", sub (@) { (__PACKAGE__ . "::$failure")->throw( @_ ) } );
-	$stash->add_symbol( "&${name}", sub (@) { (__PACKAGE__ . "::$failure")->new( @_ ) } );
+        ( my $name = $failure ) =~ s/::/_/g;
+        $stash->add_symbol( "&${name}_error", sub (@) { (__PACKAGE__ . "::$failure")->throw( @_ ) } );
+        $stash->add_symbol( "&${name}", sub (@) { (__PACKAGE__ . "::$failure")->new( @_ ) } );
     }
 }
 
@@ -78,14 +59,14 @@ sub _error {
 
     if ( is_arrayref( $_[0] ) ) {
 
-	$type = shift @{$_[0]};
-	$msg = $_[0];
+        $type = shift @{$_[0]};
+        $msg = $_[0];
     }
 
     else {
 
-	$type = shift;
-	$msg = \@_;
+        $type = shift;
+        $msg = \@_;
 
     }
 
@@ -99,13 +80,7 @@ sub _error {
 =pod
 
 
-=head1 PDLx::Algorithm::Center
-
-Various methods of finding the center of a sample
-
-=head1 FUNCTIONS
-
-=head2 sigma_clip
+=sub sigma_clip
 
 =for ref
 
@@ -427,9 +402,9 @@ The objects stringify to a failure message.
     use parent -norequire, 'PDLx::Algorithm::Center::sigma_clip::Iteration';
 
     use Class::Tiny qw(
-			iterations
-			success
-			error
+                        iterations
+                        success
+                        error
     );
 
 }
@@ -443,19 +418,19 @@ sub sigma_clip
 
     # Options, first
     my $opts = PDL::Options->new (
-		      {
-		       nsigma 	     => undef,
-		       clip   	     => undef,
-		       iterlim       => 10,
-		       center 	     => undef,
-		       dtol   	     => undef,
-		       mask   	     => undef,
-		       log 	     => undef,
-		       is_converged     => undef,
-		       coords 	     => undef,
-		       weight 	     => undef,
-		       transform     => undef,
-		      } );
+                      {
+                       nsigma        => undef,
+                       clip          => undef,
+                       iterlim       => 10,
+                       center        => undef,
+                       dtol          => undef,
+                       mask          => undef,
+                       log           => undef,
+                       is_converged     => undef,
+                       coords        => undef,
+                       weight        => undef,
+                       transform     => undef,
+                      } );
     $opts->add_synonym( { 'CENTRE' => 'CENTER' } );
 
     my $opt = $opts->options( \%uopts );
@@ -528,11 +503,11 @@ sub sigma_clip
 
             [ 'clip', 'dtol' ] => is_a_positive_number,
 
-	    nsigma => [ is_required, is_a_positive_number ],
+            nsigma => [ is_required, is_a_positive_number ],
 
             iterlim => [ is_required, is_a_positive_integer ],
 
-	    # accept point PDL (ndims == 0 ), e.g. pdl(1)
+            # accept point PDL (ndims == 0 ), e.g. pdl(1)
             center => is_a_ndim_PDL( 0, 1, "must be a 1D piddle or an array of numbers" ),
 
             transform => is_a( 'PDL::Transform' ),
@@ -544,7 +519,7 @@ sub sigma_clip
             # coords might have been converted from an array, so
             # need to emit an error message which encompasses that
             # possibility
-	    # accept point PDL (ndims == 0 ), e.g. pdl(1)
+            # accept point PDL (ndims == 0 ), e.g. pdl(1)
             coords => is_a_ndim_PDL(
                 0,
                 2,
@@ -572,7 +547,7 @@ sub sigma_clip
     # now, see what kind of data we have, and ensure that all dimensions
     # are consistent
 
-    my $ndim;			# dimensions of the data
+    my $ndim;                   # dimensions of the data
 
 
     # This starts out as a multiplicative combination of the input
@@ -584,39 +559,39 @@ sub sigma_clip
 
     if ( defined $coords ) {
 
-	$ndim = $coords->dims(0);
+        $ndim = $coords->dims(0);
 
-	for my $name ( 'mask', 'weight' ) {
+        for my $name ( 'mask', 'weight' ) {
 
-	    my $value = $opt->{$name};
-	    next unless defined $value;
+            my $value = $opt->{$name};
+            next unless defined $value;
 
-	    parameter_dimension_error( "<$name> must be a 1D piddle if <coords> is specified" )
-	      if $value->ndims != 1;
+            parameter_dimension_error( "<$name> must be a 1D piddle if <coords> is specified" )
+              if $value->ndims != 1;
 
-	    my $nelem_c = $value->dim( -1 );
-	    my $nelem_p = $coords->dim( -1 );
+            my $nelem_c = $value->dim( -1 );
+            my $nelem_p = $coords->dim( -1 );
 
-	    parameter_dimension_error( "number of elements in <$name> ($nelem_p) ) must be the same as in <coords> ($nelem_c)" )
-	      if $nelem_c != $nelem_p;
-	}
+            parameter_dimension_error( "number of elements in <$name> ($nelem_p) ) must be the same as in <coords> ($nelem_c)" )
+              if $nelem_c != $nelem_p;
+        }
 
     }
 
     elsif ( defined $opt->{weight} ) {
 
-	$coords = $opt->{weight}->ndcoords( indx );
+        $coords = $opt->{weight}->ndcoords( PDL::indx );
 
-	parameter_dimension_error( "mask must have same shape as weight\n" )
-	  if defined $opt->{mask} && $opt->{mask}->shape != $opt->{weight}->shape;
+        parameter_dimension_error( "mask must have same shape as weight\n" )
+          if defined $opt->{mask} && $opt->{mask}->shape != $opt->{weight}->shape;
 
-	$ndim = $opt->{weight}->ndims;
+        $ndim = $opt->{weight}->ndims;
 
     }
 
     else {
 
-	parameter_missing_error( "must specify one of <coords> or <weight>" )
+        parameter_missing_error( "must specify one of <coords> or <weight>" )
     }
 
 
@@ -639,8 +614,8 @@ sub sigma_clip
           : $opt->{weight} // $opt->{mask};
 
         defined $wmask
-          ? convert( $wmask != 0, double )
-          : ones( double, $coords->dim( -1 ) );
+          ? PDL::convert( $wmask != 0, PDL::double )
+          : PDL->ones( PDL::double, $coords->dim( -1 ) );
       };
 
     parameter_dimension_error( "<center> must have $ndim elements" )
@@ -650,24 +625,24 @@ sub sigma_clip
 
     unless( defined $opt->{is_converged} ) {
 
-	$opt->{is_converged} = sub {
+        $opt->{is_converged} = sub {
 
-	    my ( $last, $current ) = @_;
+            my ( $last, $current ) = @_;
 
-	    # stop if standard deviations and centers haven't changed
-	    return 1 if $current->{sigma} == $last->{sigma}
-	      && all( $current->{center} == $last->{center} );
+            # stop if standard deviations and centers haven't changed
+            return 1 if $current->{sigma} == $last->{sigma}
+              && PDL::all( $current->{center} == $last->{center} );
 
-	    # or, if a tolerance was defined, stop if distance from old
-	    # to new centers is less than the tolerance.
-	    if ( defined $opt->{dtol} )
-	    {
-		$current->{dist} = sqrt( dsum( ( $last->{center} - $current->{center} )**2 ) );
-		return 1 if $current->{dist} <= $opt->{dtol};
-	    }
+            # or, if a tolerance was defined, stop if distance from old
+            # to new centers is less than the tolerance.
+            if ( defined $opt->{dtol} )
+            {
+                $current->{dist} = sqrt( ( ( $last->{center} - $current->{center} )**2 )->dsum );
+                return 1 if $current->{dist} <= $opt->{dtol};
+            }
 
-	    return 0;
-	}
+            return 0;
+        }
     }
 
 
@@ -697,7 +672,7 @@ sub sigma_clip
         my $last = $iteration[-1];
 
         # determine distance**2 to current center
-        $r2 .= dsumover( ( $coords - $last->{center} )**2 );
+        $r2 .= ( ( $coords - $last->{center} )**2 )->dsumover;
 
         # derive new clipping radius based upon variance within old radius
         my $clip2 = $nvar * $last->variance;
@@ -716,7 +691,7 @@ sub sigma_clip
 
             if ( $total_weight == 0 ) {
 
-		$error = iteration_empty( msg => "no elements left after clip" );
+                $error = iteration_empty( msg => "no elements left after clip" );
                 ( undef, undef );
             }
 
@@ -741,11 +716,11 @@ sub sigma_clip
             clip     => sqrt( $clip2 ),
           );
 
-	# do we stop because things can't continue?
-	my $valid = defined $variance && defined $center;
+        # do we stop because things can't continue?
+        my $valid = defined $variance && defined $center;
 
-	$done = $opt->{is_converged}->( $iteration[-2], $iteration[-1] )
-	  if $valid;
+        $done = $opt->{is_converged}->( $iteration[-2], $iteration[-1] )
+          if $valid;
 
         $opt->{log} && $opt->{log}->( $iteration[-1]->copy );
 
@@ -775,25 +750,25 @@ sub _sigma_clip_iter0 {
     # get a weighted centroid if no center is specified
     if ( ! defined $center ) {
 
-	if ( defined $weight ) {
+        if ( defined $weight ) {
 
-	    $wmask = $wmask_storage;
+            $wmask = $wmask_storage;
 
-	    $wmask .= $mask_base * $weight;
-	    $total_weight = $wmask->dsum;
-	}
+            $wmask .= $mask_base * $weight;
+            $total_weight = $wmask->dsum;
+        }
 
-	else {
+        else {
 
-	    $wmask = $mask_base;
-	    $total_weight = $nelem;
-	}
+            $wmask = $mask_base;
+            $total_weight = $nelem;
+        }
 
-	$center = _centroid( $coords, $wmask, $total_weight );
+        $center = _centroid( $coords, $wmask, $total_weight );
     }
 
     # initial distances
-    my $r2 = dsumover( ( $coords - $center)**2 );
+    my $r2 = ( ( $coords - $center)**2 )->dsumover;
 
 
     # initial clip radius. this defines $clip2, which will get
@@ -802,37 +777,37 @@ sub _sigma_clip_iter0 {
 
     if ( defined $clip ) {
 
-	$wmask = $wmask_storage;
+        $wmask = $wmask_storage;
 
-	$clip2 = $clip ** 2;
+        $clip2 = $clip ** 2;
 
-	$clipped .= $r2 < $clip2;
-	$wmask .= $mask_base & $clipped;
+        $clipped .= $r2 < $clip2;
+        $wmask .= $mask_base & $clipped;
 
-	$nelem = $total_weight = $wmask->sum;
+        $nelem = $total_weight = $wmask->sum;
 
-	if ( defined $weight ) {
-	    $wmask *= $weight;
-	    $total_weight = $wmask->dsum;
-	}
+        if ( defined $weight ) {
+            $wmask *= $weight;
+            $total_weight = $wmask->dsum;
+        }
     }
     else {
 
-	if ( defined $weight ) {
+        if ( defined $weight ) {
 
-	    $wmask = $wmask_storage;
+            $wmask = $wmask_storage;
 
-	    $wmask .= $mask_base * $weight;
-	    $total_weight = $wmask->dsum;
+            $wmask .= $mask_base * $weight;
+            $total_weight = $wmask->dsum;
 
-	}
+        }
 
-	else {
+        else {
 
-	    $wmask = $mask_base;
-	    $total_weight = $nelem;
+            $wmask = $mask_base;
+            $total_weight = $nelem;
 
-	}
+        }
     }
 
     # now the variance, which is wt*dist^2 / sum(wt);
@@ -860,24 +835,14 @@ sub _centroid
 
 1;
 
+# COPYRIGHT
+
 __END__
 
 =pod
 
-=head1 AUTHOR
-
-Diab Jerius, E<lt>djerius@cpan.orgE<gt>
+=head1 SYNOPSIS
 
 
-=head1 COPYRIGHT AND LICENSE
+=head1 SEE ALSO
 
-Copyright 2016 Smithsonian Astrophysical Observatory
-
-This software is released under the GNU General Public License.  You
-may find a copy at
-
-          http://www.gnu.org/licenses
-
-
-
-=cut
