@@ -10,7 +10,7 @@ version 0.01
 
 # SUBROUTINES
 
-## sigma\_clip
+## iterate
 
 Center a dataset by iteratively excluding data outside of a radius equal to a specified number of standard deviations
 
@@ -88,19 +88,7 @@ The following (case-insensitive) options are available:
 
     For densely packed data, `mask` should have the same shape as `weight`.
 
-- `nsigma` => _float_
-
-    _Required_
-
-    The number of standard deviations at which to clip.
-
-- clip => _scalar|arrayref_
-
-    _Optional_
-
-    The clipping radius used to determine the initial standard deviation.
-
-- `center|centre` => _arrayref_|_1D piddle_
+- `center|centre` => _arrayref_|_1D piddle_|_coderef_
 
     _Optional_
 
@@ -150,6 +138,10 @@ The following (case-insensitive) options are available:
 
     A subroutine which will be called at the end of each iteration. It is passed
     a copy of the current iteration's results object see ["Iteration Results"](#iteration-results)).
+
+- `transform` => PDL::Transform object
+
+    This is applied to the coordinates prior to centroiding.
 
 ### Iteration Results
 
@@ -243,10 +235,21 @@ Errors are represented as objects in the following classes:
 
 The objects stringify to a failure message.
 
-# BUGS AND LIMITATIONS
+# BUGS
 
-You can make new bug reports, and view existing ones, through the
-web interface at [https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center](https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center).
+Please report any bugs or feature requests on the bugtracker website
+[https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center](https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center)
+or by email to
+[bug-PDLx-Algorithm-Center@rt.cpan.org](mailto:bug-PDLx-Algorithm-Center@rt.cpan.org).
+
+When submitting a bug or request, please include a test-file or a
+patch to an existing test-file that illustrates the bug or desired
+feature.
+
+# SOURCE
+
+The development version is on github at [https://github.com/djerius/pdlx-algorithm-center](https://github.com/djerius/pdlx-algorithm-center)
+and may be cloned from [git://github.com/djerius/pdlx-algorithm-center.git](git://github.com/djerius/pdlx-algorithm-center.git)
 
 # AUTHOR
 

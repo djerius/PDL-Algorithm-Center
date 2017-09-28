@@ -4,15 +4,18 @@ use strict;
 use warnings;
 
 
-use Test::More;
-use Test::Fatal;
-use Test::Deep;
+use Test2::V0;
+use Test2::Tools::Compare qw[ object call ];
+use Number::Tolerant;
 
 use PDLx::Algorithm::Center qw[ sigma_clip ];
 
 use PDL;
 use PDL::GSL::RNG;
 
+use Data::Dump 'pp';
+
+use Hash::Wrap;
 
 sub eclass ($) {
     return join( '::', 'PDLx::Algorithm::Center', @_ );
@@ -22,55 +25,60 @@ sub eclass ($) {
 sub logit {
     my %msg = %{ shift() };
     $msg{center} = [ PDL::Core::topdl( $msg{center} )->list ];
-    note explain \%msg;
+    note pp \%msg;
 }
 
 ########################################
 # interface
 
-my %req = ( nsigma => 1.5 );
+my %req = ( nsigma => 1.5, dtol => 1.0 );
 
 # coordinates
 subtest "coords" => sub {
 
-    isa_ok( exception { sigma_clip( %req, coords => PDL->null ) },
-        eclass( 'parameter::type' ), 'null' );
+    my $e;
 
-    isa_ok( exception { sigma_clip( %req, coords => PDL->zeroes( 0 ) ) },
-        eclass( 'parameter::type' ), 'empty' );
+    isa_ok( $e = dies { sigma_clip( %req, coords => PDL->null ) },
+        [ eclass( 'parameter' ) ], 'null' );
 
-    isa_ok( exception { sigma_clip( %req, coords => 'scalar' ) },
-        eclass( 'parameter::type' ), 'scalar' );
+    isa_ok( $e = dies { sigma_clip( %req, coords => PDL->zeroes( 0 ) ) },
+        [ eclass( 'parameter' ) ], 'empty' );
+
+    isa_ok( $e = dies { sigma_clip( %req, coords => 'scalar' ) },
+        [ eclass( 'parameter' ) ], 'scalar' );
 
     isa_ok(
-        exception { sigma_clip( %req, coords => ['scalar'] ) },
-        eclass( 'parameter::type' ),
+        $e = dies { sigma_clip( %req, coords => ['scalar'] ) },
+        [ eclass( 'parameter' ) ],
         'array element not piddle'
     );
 
     isa_ok(
-        exception {
+        $e = dies {
             sigma_clip( %req, coords => [ pdl( 1 ), pdl( 1, 2 ), pdl( 1 ) ] )
         },
-        eclass( 'parameter::type' ),
+        [ eclass( 'parameter' ) ],
         'unequal number of elements'
     );
 
     isa_ok(
-        exception {
+        $e = dies {
             sigma_clip( %req, coords => [ pdl( [ 1, 2 ], [ 3, 4 ] ) ] )
         },
-        eclass( 'parameter::type' ),
+        [ eclass( 'parameter' ) ],
         'not 1D'
     );
 
-    is( exception { sigma_clip( %req, coords => pdl( 1, 2 ) ) },
-        undef, "pdl(1, 2)" );
+    ok( lives { sigma_clip( %req, coords => pdl( 1, 2 ) ) }, "pdl(1, 2)", )
+      or note( $@ );
 
-    is( exception { sigma_clip( %req, coords => [ pdl( 1, 2 ) ] ) },
-        undef, "[ pdl(1, 2) ]" );
+    ok(
+        lives { sigma_clip( %req, coords => [ pdl( 1, 2 ) ] ) },
+        "[ pdl(1, 2) ]",
+    ) or note( $@ );
 
-    is( exception { sigma_clip( %req, coords => pdl( 1 ) ) }, undef, "pdl(1)" );
+    ok( lives { sigma_clip( %req, coords => pdl( 1 ) ) }, "pdl(1)", )
+      or note( $@ );
 
 
 };
@@ -78,27 +86,27 @@ subtest "coords" => sub {
 subtest "center" => sub {
 
     isa_ok(
-        exception {
+        dies {
             sigma_clip(
                 %req,
                 coords => pdl( 1 ),
                 center => 'foo'
               )
         },
-        eclass( 'parameter::type' ),
+        [ eclass( 'parameter' ) ],
         'center not a 1D piddle'
     );
 
-    is(
-        exception {
+    ok(
+        lives {
             sigma_clip(
                 %req,
                 coords => pdl( [1], [2] ),
-                center => pdl( 1, 1 ) )
+                center => pdl( 1.5 ),
+              )
         },
-        undef,
         'center a 1D piddle'
-    );
+    ) or note $@;
 
 
 };
@@ -106,20 +114,19 @@ subtest "center" => sub {
 subtest "weight" => sub {
 
     isa_ok(
-        exception {
+        dies {
             sigma_clip( %req, weight => [] );
         },
-        eclass( 'parameter::type' ),
+        [ eclass( 'parameter' ) ],
         'wrong type'
     );
 
-    is(
-        exception {
-            sigma_clip( %req, weight => pdl( 1 ) );
+    ok(
+        lives {
+            sigma_clip( %req, weight => 1 );
         },
-        undef,
         'pdl(1)'
-    );
+    ) or note $@;
 
 };
 
@@ -130,28 +137,27 @@ foreach my $field ( 'weight', 'mask' ) {
     subtest "coords + $field" => sub {
 
         isa_ok(
-            exception {
+            dies {
                 sigma_clip(
                     %req,
                     coords => [ pdl( 1, 2, 3 ), pdl( 3, 4, 5 ) ],
                     $field => pdl( 1 ),
                   )
             },
-            eclass( 'parameter::dimension' ),
+            [ eclass( 'parameter' ) ],
             'incorrect dimensions'
         );
 
-        is(
-            exception {
+        ok(
+            lives {
                 sigma_clip(
                     %req,
                     coords => [ pdl( 1, 2, 3 ), pdl( 3, 4, 5 ) ],
-                    $field => pdl( 1,   2, 3 ),
+                    $field => pdl( 1, 2, 3 ),
                   )
             },
-            undef,
             'matched dimensions'
-        );
+        ) or note $@;
 
     };
 
@@ -160,8 +166,8 @@ foreach my $field ( 'weight', 'mask' ) {
 subtest "!( coords || weight)" => sub {
 
     isa_ok(
-        exception { sigma_clip( %req, ) },
-        eclass( 'parameter::missing' ),
+        dies { sigma_clip( %req, ) },
+        [ eclass( 'parameter' ) ],
         'neither coords nor weight'
     );
 
@@ -171,14 +177,14 @@ subtest "!( coords || weight)" => sub {
 subtest 'log' => sub {
 
     isa_ok(
-        exception {
+        dies {
             sigma_clip(
                 %req,
                 coords => pdl( 1 ),
                 log    => 'string',
               )
         },
-        eclass( 'parameter::type' ),
+        [ eclass( 'parameter' ) ],
         'log = string'
     );
 
@@ -190,106 +196,128 @@ for my $field ( qw( clip nsigma dtol ) ) {
     subtest $field => sub {
 
         isa_ok(
-            exception {
+            dies {
                 sigma_clip( %req, coords => pdl( 1 ), $field => 'foo' )
             },
-            eclass( 'parameter::value' ),
+            [ eclass( 'parameter' ) ],
             qq/$field = string/
         );
 
         isa_ok(
-            exception {
+            dies {
                 sigma_clip( %req, coords => pdl( 1 ), $field => -1 )
             },
-            eclass( 'parameter::value' ),
+            [ eclass( 'parameter' ) ],
             qq/$field = -1/
         );
 
         isa_ok(
-            exception {
+            dies {
                 sigma_clip( %req, coords => pdl( 1 ), $field => 0 )
             },
-            eclass( 'parameter::value' ),
+            [ eclass( 'parameter' ) ],
             qq/$field = 0/
         );
 
-        is(
-            exception {
+        ok(
+            lives {
                 sigma_clip( %req, coords => pdl( 1, 1 ), $field => 1 )
             },
-            undef,
             qq/$field = 1/
-        );
+        ) or note $@;
 
     };
-
-
 }
+
+
+
 
 ########################################
 # operations
 
-# let's try clipping!
-subtest 'coords + clip results' => sub {
+sub _generate_sample {
 
-    my $rng = PDL::GSL::RNG->new( 'taus' );
+    my %attr;
 
     # so tests are reproducible
-    my $nelem = 100000;
+    my $rng = PDL::GSL::RNG->new( 'taus' );
     $rng->set_seed( 1 );
     srand( 1 );
 
+    $attr{nelem} = 100000;
+
     # generate a bunch of coordinates
-    my $coords = $rng->ran_bivariate_gaussian( 10, 8, 0.5, $nelem );
-    my $center = pdl( 0.5, 0.5 );
+    $attr{coords} = $rng->ran_bivariate_gaussian( 10, 8, 0.5, $attr{nelem} );
+    $attr{initial_center} = pdl( 0.5, 0.5 );
 
     # calculate sigma for those inside of a radius of 10
-    my $inside = $coords->xchg( 0, 1 )
-      ->whereND( dsumover( ( $coords - $center )**2 ) < 100 )->xchg( 0, 1 );
+    $attr{mask} = dsumover( ( $attr{coords} - $attr{initial_center} )**2 ) < 100;
+    $attr{inside} = $attr{coords}->xchg( 0, 1 )->whereND( $attr{mask} )->xchg( 0, 1 );
 
-    my $ninside = $inside->dim( 1 );
-    my $sigma = sqrt( dsum( ( $inside - $center )**2 ) / $ninside );
+    $attr{ninside} = $attr{inside}->dim( 1 );
+    $attr{sigma} = tolerance( sqrt( dsum( ( $attr{inside} - $attr{initial_center} )**2 ) / $attr{ninside} ), plus_or_minus => .00000001 );
+
+    $attr{center} = [ tolerance( 0.0126755884280886, plus_or_minus => 0.001 ),
+                   tolerance( 0.0337090322699186, plus_or_minus => 0.001 ),
+                   ];
+
+    $attr{dist} = tolerance( 0, plus_or_minus => 0.001 );
+
+    return wrap_hash( \%attr );
+}
+
+
+# let's try clipping!
+subtest 'coords + clip results' => sub {
+
+    my $sample = _generate_sample();
 
     my $results = sigma_clip(
-        coords  => $coords,
-        center  => $center,
+        coords  => $sample->coords,
+        center  => $sample->initial_center,
         clip    => 10,
         dtol    => 0.00001,
         iterlim => 100,
         nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
     );
 
-    ok( $results->{success}, "successful centering" );
+    ok( $results->success, "successful centering" ) or note $results->error;
 
     # make sure iteration 0 agrees with the above calculations
-    cmp_deeply(
-        $results->{iterations}[0],
-        methods(
-            sigma  => num( $sigma, .0000001 ),
-            nelem  => $ninside,
-            weight => $ninside,
-        ),
+    is(
+        $results->iterations->[0],
+        object {
+            call sigma => validator( '==', $sample->sigma, sub { $_ == $sample->sigma } );
+            call nelem => $sample->ninside;
+            call weight => $sample->ninside;
+            end();
+        },
         "iteration 0",
     );
 
     # and that the last one agrees with previous fiducial runs, to see
     # if something has broken
-    cmp_deeply(
-        $results->{iterations}[-1],
-        methods(
-            iter   => 56,
-            dist   => 0,
-            nelem  => 43597,
-            weight => 43597,
-            center => code(
-                sub {
-                    all(
-                        $_[0]->approx(
-                            pdl( 0.0126755884280886, 0.0337090322699186 ) ) );
-                } )
-        ),
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 56;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
         "iteration -1",
     );
+    #>>> notidy
 
 
 };
@@ -297,62 +325,50 @@ subtest 'coords + clip results' => sub {
 # let's try masking!
 subtest 'coords + mask results' => sub {
 
-    my $rng = PDL::GSL::RNG->new( 'taus' );
-
-    # so tests are reproducible
-    my $nelem = 100000;
-    $rng->set_seed( 1 );
-    srand( 1 );
-
-    # generate a bunch of coordinates
-    my $coords = $rng->ran_bivariate_gaussian( 10, 8, 0.5, $nelem );
-
-    # calculate sigma for those inside of a radius of 10
-    my $center = pdl( 0.5, 0.5 );
-    my $mask = dsumover( ( $coords - $center )**2 ) < 100;
-    my $inside = $coords->xchg( 0, 1 )->whereND( $mask )->xchg( 0, 1 );
-
-    my $ninside = $inside->dim( 1 );
-    my $sigma = sqrt( dsum( ( $inside - $center )**2 ) / $ninside );
+    my $sample = _generate_sample();
 
     my $results = sigma_clip(
-        coords  => $coords,
-        center  => $center,
-        mask    => $mask,
+        coords  => $sample->coords,
+        center  => $sample->initial_center,
+        mask    => $sample->mask,
         iterlim => 100,
         dtol    => 0.00001,
         nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
     );
+
+    ok( $results->success, "successful centering" ) or note $results->error;
 
     # make sure iteration 0 agrees with the above calculations
-    cmp_deeply(
-        $results->{iterations}[0],
-        methods(
-            sigma  => num( $sigma, .0000001 ),
-            nelem  => $ninside,
-            weight => $ninside,
-        ),
-        "iteration 0",
-    );
+    is(
+       $results->{iterations}[0],
+       object {
+           call sigma  => validator( '==', $sample->sigma, sub { $_ == $sample->sigma } );
+           call nelem => $sample->ninside;
+           call weight => $sample->ninside;
+       },
+       "iteration 0",
+      );
 
-    # and that the last one agrees with previous fiducial runs, to see
-    # if something has broken
-    cmp_deeply(
-        $results->{iterations}[-1],
-        methods(
-            iter   => 56,
-            dist   => 0,
-            nelem  => 43597,
-            weight => 43597,
-            center => code(
-                sub {
-                    all(
-                        $_[0]->approx(
-                            pdl( 0.0126755884280886, 0.0337090322699186 ) ) );
-                } )
-        ),
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 56;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
         "iteration -1",
     );
+    #>>> notidy
 
 };
 
@@ -360,33 +376,17 @@ subtest 'coords + mask results' => sub {
 
 subtest 'coords + clip + weight results' => sub {
 
-    my $rng = PDL::GSL::RNG->new( 'taus' );
+    my $sample = _generate_sample();
 
-    # so tests are reproducible
-    my $nelem = 100000;
-    $rng->set_seed( 1 );
-    srand( 1 );
-
-    # generate a bunch of coordinates
-    my $center = pdl( 0.5, 0.5 );
-    my $coords = $rng->ran_bivariate_gaussian( 10, 8, 0.5, $nelem );
-
-    # calculate sigma for those inside of a radius of 10
-    my $weight       = zeroes( $nelem ) + 2;
-    my $mask         = dsumover( ( $coords - $center )**2 ) < 100;
-    my $inside       = $coords->xchg( 0, 1 )->whereND( $mask )->xchg( 0, 1 );
-    my $inside_nelem = $inside->dim( -1 );
-
-    my $inside_weight     = $weight->where( $mask );
+    my $weight            = zeroes( $sample->nelem ) + 2;
+    my $inside_weight     = $weight->where( $sample->mask );
     my $inside_weight_sum = $inside_weight->dsum;
 
-    my $sigma
-      = sqrt( dsum( $inside_weight * dsumover( ( $inside - $center )**2 ) )
-          / $inside_weight_sum );
+    $sample->sigma( sqrt( dsum( $inside_weight * dsumover( ( $sample->inside - $sample->initial_center )**2 ) ) / $inside_weight_sum ) );
 
     my $results = sigma_clip(
-        coords  => $coords,
-        center  => $center,
+        coords  => $sample->coords,
+        center  => $sample->initial_center,
         nsigma  => 1.5,
         clip    => 10,
         iterlim => 100,
@@ -395,34 +395,38 @@ subtest 'coords + clip + weight results' => sub {
     );
 
     # make sure iteration 0 agrees with the above calculations
-    cmp_deeply(
-        $results->{iterations}[0],
-        methods(
-            sigma  => num( $sigma, .0000001 ),
-            nelem  => $inside_nelem,
-            weight => $inside_weight_sum,
-        ),
-        "iteration 0",
-    );
+    # make sure iteration 0 agrees with the above calculations
+    is(
+       $results->{iterations}[0],
+       object {
+           call sigma  => validator( '==', $sample->sigma, sub { $_ == $sample->sigma } );
+           call nelem => $sample->ninside;
+           call weight => $inside_weight_sum;
+       },
+       "iteration 0",
+      );
 
-    # and that the last one agrees with previous fiducial runs, to see
-    # if something has broken
-    cmp_deeply(
-        $results->{iterations}[-1],
-        methods(
-            iter   => 56,
-            dist   => 0,
-            nelem  => 43597,
-            weight => 43597 * 2,
-            center => code(
-                sub {
-                    all(
-                        $_[0]->approx(
-                            pdl( 0.0126755884280886, 0.0337090322699186 ) ) );
-                } )
-        ),
-        "iteration 0",
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 56;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597 * 2;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
+        "iteration -1",
     );
+    #>>> notidy
+
 
 };
 
