@@ -66,14 +66,11 @@ sub _error {
     }
 
     else {
-
         $type = shift;
         $msg  = \@_;
-
     }
 
     ( __PACKAGE__ . "::$type" )->throw( @$msg );
-
 }
 
 
@@ -109,7 +106,7 @@ sub _distance {
 
     my ( $last, $current ) = @_;
 
-    return sqrt( ( ( $last->center - $current->center )**2 )->dsum ) 
+    return sqrt( ( ( $last->center - $current->center )**2 )->dsum );
 }
 
 sub _sigma_clip_is_converged {
@@ -462,14 +459,6 @@ use Hash::Wrap {
   };
 
 
-sub _upgrade_dims {
-
-    return
-         $_[0]->$_isa( 'PDL' )
-      && !$_[0]->isempty
-      && $_[0]->ndims == 0 ? $_[0]->dummy( 0 ) : $_[0];
-}
-
 sub sigma_clip {
 
     state $check = compile_named(
@@ -486,27 +475,25 @@ sub sigma_clip {
         weight    => Optional [Piddle_min1D_ne],
     );
 
-    my %opt;
-    do {
+    my $opt = do {
         local $@;
-        %opt = eval { %{ $check->( @_ ) } };
+        my %opt = eval { %{ $check->( @_ ) } };
         parameter_error( $@ ) if $@;
+        wrap_hash( \%opt );
     };
 
-    $opt{iterlim} //= 10;
-
-    my $opt = wrap_hash( \%opt );
+    $opt->{iterlim} //= 10;
 
     #---------------------------------------------------------------
 
     # now, see what kind of data we have, and ensure that all dimensions
     # are consistent
 
-    if ( defined $opt{coords} ) {
+    if ( defined $opt->{coords} ) {
 
         for my $name ( 'mask', 'weight' ) {
 
-            my $value = $opt{$name};
+            my $value = $opt->{$name};
             next unless defined $value;
 
             parameter_error(
@@ -523,12 +510,12 @@ sub sigma_clip {
 
     }
 
-    elsif ( defined $opt{weight} ) {
+    elsif ( defined $opt->{weight} ) {
 
-        $opt{coords} = $opt->weight->ndcoords( PDL::indx );
+        $opt->{coords} = $opt->weight->ndcoords( PDL::indx );
 
         parameter_error( "mask must have same shape as weight\n" )
-          if defined $opt{mask}
+          if defined $opt->{mask}
           && $opt->mask->shape != $opt->weight->shape;
 
 
@@ -540,31 +527,27 @@ sub sigma_clip {
         parameter_error( "must specify one of <coords> or <weight>" );
     }
 
-    $opt->coords( $opt->transform->apply( $opt->coords ) ) if $opt{transform};
+    $opt->coords( $opt->transform->apply( $opt->coords ) ) if $opt->{transform};
 
-    $opt{center} //= \&_weighted_mean_center;
-    my $nsigma = delete $opt{nsigma};
-    $opt{calc_wmask} //= sub {
+    $opt->{center} //= \&_weighted_mean_center;
+    my $nsigma = delete $opt->{nsigma};
+    $opt->{calc_wmask} //= sub {
         _sigma_clip_wmask( $nsigma, @_ );
         return;
     };
 
-    $opt{calc_center} //= sub {
+    $opt->{calc_center} //= sub {
         my ( $coords, $wmask, $iter, $work ) = @_;
 
         _weighted_mean_center( $coords, $wmask, $iter->weight );
     };
 
-    my ( $clip, $dtol ) = delete @{opt}{ 'clip', 'dtol' };
-    $opt{is_converged} //= sub {
+    my ( $clip, $dtol ) = delete @{$opt}{ 'clip', 'dtol' };
+    $opt->{is_converged} //= sub {
         _sigma_clip_is_converged( $clip, $dtol, @_ );
     };
 
-
-    $DB::single=1;
-
-    iterate( %opt );
-
+    iterate( %$opt );
 }
 
 
@@ -582,10 +565,9 @@ sub iterate {
         weight       => Optional [Piddle1D_ne],
     );
 
-    my %opt = %{ $check->( @_ ) };
-    my $opt = wrap_hash( \%opt );
+    my $opt = wrap_hash( $check->( @_ ) );
 
-    $DB::single=1;
+    $opt->{log} //= undef;
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 
@@ -600,18 +582,18 @@ sub iterate {
     my $wmask_base = do {
 
         parameter_error( "<$_> must have $nelem elements" )
-          for grep { defined $opt{$_} && $opt{$_}->nelem != $nelem }
+          for grep { defined $opt->{$_} && $opt->{$_}->nelem != $nelem }
           qw[ mask weight ];
 
         # weighted mask. not a boolean mask
         my $wmask
-          = defined $opt{weight} && defined $opt{mask}
-          ? $opt{weight} * $opt{mask}
-          : $opt{weight} // $opt{mask};
+          = defined $opt->{weight} && defined $opt->{mask}
+          ? $opt->weight * $opt->mask
+          : $opt->{weight} // $opt->{mask};
 
         defined $wmask
           ? PDL::convert( $wmask, PDL::double )
-          : PDL->ones( PDL::double, $opt{coords}->getdim( -1 ) );
+          : PDL->ones( PDL::double, $opt->coords->getdim( -1 ) );
     };
 
     my $wmask_base_weight = $wmask_base->dsum;
@@ -646,9 +628,9 @@ sub iterate {
           nelem => $wmask_base_nelem,
       } );
 
-    $opt{is_converged}->( $opt->coords, $wmask, undef, $iteration[-1], $work );
+    $opt->is_converged->( $opt->coords, $wmask, undef, $iteration[-1], $work );
 
-    defined $opt{log} && $opt->log->( new_iteration( $iteration[-1] ) );
+    $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
 
     my $iteration;
     my $converged;
@@ -681,7 +663,7 @@ sub iterate {
 
             $converged = $opt->is_converged->( $opt->coords, $wmask, $last, $current, $work );
 
-            defined $opt{log} && $opt->log->( new_iteration( $current ) );
+            $opt->log && $opt->log->( new_iteration( $current ) );
         }
 
     };
