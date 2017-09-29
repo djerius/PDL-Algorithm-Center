@@ -1,6 +1,6 @@
 # NAME
 
-PDLx::Algorithm::Center - Various methods of finding the center of a sample
+PDL::Algorithm::Center - Various methods of finding the center of a sample
 
 # VERSION
 
@@ -146,7 +146,7 @@ The following (case-insensitive) options are available:
 ### Iteration Results
 
 The results for each iteration are stored in object of class
-`PDLx::Algorithm::Center::sigma_clip::Iteration` with the
+`PDL::Algorithm::Center::sigma_clip::Iteration` with the
 following attributes/methods:
 
 - `center` => _piddle|undef_
@@ -194,8 +194,8 @@ following attributes/methods:
 ### Returned Results
 
 **sigma\_clip** returns an object of class
-`PDLx::Algorithm::Center::sigma_clip::Result`.  It is a subclass of
-`PDLx::Algorithm::Center::sigma_clip::Iteration` (the common
+`PDL::Algorithm::Center::sigma_clip::Result`.  It is a subclass of
+`PDL::Algorithm::Center::sigma_clip::Iteration` (the common
 attributes refer to the results of the final iteration) with these
 additional attributes/methods:
 
@@ -220,27 +220,27 @@ Errors are represented as objects in the following classes:
 
     These are unconditionally thrown.
 
-        PDLx::Algorithm::Center::parameter
-        PDLx::Algorithm::Center::parameter::type
-        PDLx::Algorithm::Center::parameter::dimension
-        PDLx::Algorithm::Center::parameter::missing
-        PDLx::Algorithm::Center::parameter::value
+        PDL::Algorithm::Center::parameter
+        PDL::Algorithm::Center::parameter::type
+        PDL::Algorithm::Center::parameter::dimension
+        PDL::Algorithm::Center::parameter::missing
+        PDL::Algorithm::Center::parameter::value
 
 - Iteration
 
     These are stored in the result object's `error` attribute.
 
-        PDLx::Algorithm::Center::iteration::limit_reached
-        PDLx::Algorithm::Center::iteration::empty
+        PDL::Algorithm::Center::iteration::limit_reached
+        PDL::Algorithm::Center::iteration::empty
 
 The objects stringify to a failure message.
 
 # BUGS
 
 Please report any bugs or feature requests on the bugtracker website
-[https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center](https://rt.cpan.org/Public/Dist/Display.html?Name=PDLx-Algorithm-Center)
+[https://rt.cpan.org/Public/Dist/Display.html?Name=PDL-Algorithm-Center](https://rt.cpan.org/Public/Dist/Display.html?Name=PDL-Algorithm-Center)
 or by email to
-[bug-PDLx-Algorithm-Center@rt.cpan.org](mailto:bug-PDLx-Algorithm-Center@rt.cpan.org).
+[bug-PDL-Algorithm-Center@rt.cpan.org](mailto:bug-PDL-Algorithm-Center@rt.cpan.org).
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -248,8 +248,8 @@ feature.
 
 # SOURCE
 
-The development version is on github at [https://github.com/djerius/pdlx-algorithm-center](https://github.com/djerius/pdlx-algorithm-center)
-and may be cloned from [git://github.com/djerius/pdlx-algorithm-center.git](git://github.com/djerius/pdlx-algorithm-center.git)
+The development version is on github at [https://github.com/djerius/pdl-algorithm-center](https://github.com/djerius/pdl-algorithm-center)
+and may be cloned from [git://github.com/djerius/pdl-algorithm-center.git](git://github.com/djerius/pdl-algorithm-center.git)
 
 # AUTHOR
 

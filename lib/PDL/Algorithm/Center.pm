@@ -1,4 +1,4 @@
-package PDLx::Algorithm::Center;
+package PDL::Algorithm::Center;
 
 # ABSTRACT: Various methods of finding the center of a sample
 
@@ -17,7 +17,7 @@ use custom::failures;
 use Package::Stash;
 use Hash::Wrap;
 
-use PDLx::Algorithm::Center::Types -all;
+use PDL::Algorithm::Center::Types -all;
 use Types::Standard -types;
 use Types::Common::Numeric -types;
 use Type::Params qw[ compile_named ];
@@ -335,7 +335,7 @@ This is applied to the coordinates prior to centroiding.
 =head3 Iteration Results
 
 The results for each iteration are stored in object of class
-C<PDLx::Algorithm::Center::sigma_clip::Iteration> with the
+C<PDL::Algorithm::Center::sigma_clip::Iteration> with the
 following attributes/methods:
 
 =over
@@ -387,8 +387,8 @@ only if the default convergence routine is in use.
 =head3 Returned Results
 
 B<sigma_clip> returns an object of class
-C<PDLx::Algorithm::Center::sigma_clip::Result>.  It is a subclass of
-C<PDLx::Algorithm::Center::sigma_clip::Iteration> (the common
+C<PDL::Algorithm::Center::sigma_clip::Result>.  It is a subclass of
+C<PDL::Algorithm::Center::sigma_clip::Iteration> (the common
 attributes refer to the results of the final iteration) with these
 additional attributes/methods:
 
@@ -420,18 +420,18 @@ Errors are represented as objects in the following classes:
 
 These are unconditionally thrown.
 
-  PDLx::Algorithm::Center::parameter
-  PDLx::Algorithm::Center::parameter::type
-  PDLx::Algorithm::Center::parameter::dimension
-  PDLx::Algorithm::Center::parameter::missing
-  PDLx::Algorithm::Center::parameter::value
+  PDL::Algorithm::Center::parameter
+  PDL::Algorithm::Center::parameter::type
+  PDL::Algorithm::Center::parameter::dimension
+  PDL::Algorithm::Center::parameter::missing
+  PDL::Algorithm::Center::parameter::value
 
 =item Iteration
 
 These are stored in the result object's C<error> attribute.
 
-  PDLx::Algorithm::Center::iteration::limit_reached
-  PDLx::Algorithm::Center::iteration::empty
+  PDL::Algorithm::Center::iteration::limit_reached
+  PDL::Algorithm::Center::iteration::empty
 
 =back
 
@@ -442,7 +442,7 @@ The objects stringify to a failure message.
 use Hash::Wrap {
     -as     => 'new_iteration',
     -create => 1,
-    -class  => 'PDLx::Algorithm::Center::Iteration',
+    -class  => 'PDL::Algorithm::Center::Iteration',
     -clone  => sub {
         my $hash = shift;
 
@@ -457,7 +457,7 @@ use Hash::Wrap {
   },
   {
     -as     => 'return_iterate',
-    -class  => 'PDLx::Algorithm::Center::Iterate',
+    -class  => 'PDL::Algorithm::Center::Iterate',
     -create => 1,
   };
 
@@ -561,6 +561,8 @@ sub sigma_clip {
     };
 
 
+    $DB::single=1;
+
     iterate( %opt );
 
 }
@@ -582,6 +584,8 @@ sub iterate {
 
     my %opt = %{ $check->( @_ ) };
     my $opt = wrap_hash( \%opt );
+
+    $DB::single=1;
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 

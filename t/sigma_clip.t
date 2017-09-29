@@ -8,7 +8,7 @@ use Test2::V0;
 use Test2::Tools::Compare qw[ object call ];
 use Number::Tolerant;
 
-use PDLx::Algorithm::Center qw[ sigma_clip ];
+use PDL::Algorithm::Center qw[ sigma_clip ];
 
 use PDL;
 use PDL::GSL::RNG;
@@ -18,7 +18,7 @@ use Data::Dump 'pp';
 use Hash::Wrap;
 
 sub eclass ($) {
-    return join( '::', 'PDLx::Algorithm::Center', @_ );
+    return join( '::', 'PDL::Algorithm::Center', @_ );
 }
 
 # log iterations for debugging poiposes

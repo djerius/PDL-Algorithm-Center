@@ -1,4 +1,4 @@
-package PDLx::Algorithm::Center::Types;
+package PDL::Algorithm::Center::Types;
 use latest;
 
 

@@ -3,7 +3,7 @@
 use Test2::V0;
 use Test2::API qw[ context ];
 use PDL::Lite;
-use PDLx::Algorithm::Center::Types -all;
+use PDL::Algorithm::Center::Types -all;
 
 my $null = PDL->null;
 my $d0   = PDL->new( 1 );
