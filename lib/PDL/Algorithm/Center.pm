@@ -161,39 +161,37 @@ sub _sigma_clip_is_converged {
 
 ## no critic (ProhibitAccessOfPrivateData)
 
-
 =pod
 
+=sub sigma_clip
 
-=sub iterate
+  $results = sigma_clip(
+    center    => Optional [ Center | CodeRef ],
+    clip      => Optional [PositiveNum],
+    coords    => Optional [Coords],
+    dtol      => PositiveNum,
+    iterlim   => Optional [PositiveInt],
+    log       => Optional [CodeRef],
+    mask      => Optional [Piddle_min1D_ne],
+    nsigma    => PositiveNum,
+    weight    => Optional [Piddle_min1D_ne],
+ );
 
-=for ref
+Center a dataset by iteratively excluding data outside of a radius
+equal to a specified number of standard deviations. The dataset may be
+specified as a list of coordinates and optional weights, or as a
+weight piddle of shape I<NxM> (e.g., an image).  If only the weight
+piddle is provided, it is converted internally into a list of
+coordinates with associated weights.
 
-Center a dataset by iteratively excluding data outside of a radius equal to a specified number of standard deviations
-
-Elements may be individually weighted.
-
-=for usage
-
-Usage:
-
-
-  $results = sigma_clip( coords => $coords,
-                         weight => $weight,
-                         mask   => $mask,
-                         %opts);
-
-  $results = sigma_clip( weight => $img, %opts);
-
-
-B<sigma_clip> finds the center of a data set by:
+The center of a data set is determined by:
 
 =over
 
 =item 1
 
-ignoring the data whose distance to the current center is greater than
-a specified number of standard deviations
+clipping (ignoring) the data whose distance to the current center is
+greater than a specified number of standard deviations
 
 =item 2
 
@@ -202,17 +200,17 @@ remaining data
 
 =item 3
 
-calculating the standard deviation of the distance from the data to
-the center
+calculating the standard deviation of the distance from the remaining
+data to the center
 
 =item 4
 
-repeat at step 1 until either a convergence tolerance has been met or
+repeat step 1 until either a convergence tolerance has been met or
 the iteration limit has been exceeded
 
 =back
 
-The initial center may be explicitly specified, or may be calculated
+The initial center may be explicitly specified,  or may be calculated
 by performing a (weighted) centroid of the data.
 
 The initial standard deviation is calculated using the initial center and either
@@ -220,125 +218,119 @@ the entire dataset, or from a clipped region about the initial center.
 
 =head3 Options
 
-The following (case-insensitive) options are available:
-
-=over 8
-
-=item C<coords> => I<arrayref|piddle>
-
-I<Optional> (see C<weight>)
-
-The coordinates to center.  C<coords> may be either a I<N> element
-list of piddles of shape I<M> or a single piddle of shape I<NxM>, where
+The following options are available:
 
 =over
 
-=item I<N> is the number of dimensions in the data
+=item C<center> => I<Piddle1D_ne | coderef >
 
-=item I<M> is the number of data elements
+The initial center.  It may either be a piddle with shape I<N>, (or
+something that can be coerced into one, see L</TYPES>), or it may be
+a coderef which will return the center as a piddle with shape I<N>.
+The subroutine is called as
+
+  &$center( $coords, $wmask, $weight );
+
+with
+
+=over
+
+=item C<$coords>
+
+a piddle with shape I<NxM> containing I<M> coordinates with dimension I<N>
+
+=item C<$wmask>
+
+a piddle of shape I<M> containing weights
+
+=item C<$weight>
+
+a scalar which is the sum of the weights in C<$wmask>
 
 =back
 
-C<coords> is useful if the data are sparse; for dense data, use C<weight> instead.
+=item C<clip> => I<positive number>
 
-C<weight> may be specified with coords for sparse, weighted data.
+I<Optional>.  The clipping radius used to determine the initial standard deviation.
+
+=item C<coords> => I<Coords>
+
+I<Optional>.  The coordinates to center.  C<coords> is a piddle of
+shape I<NxM> (or anything which can be coerced into it, see
+L</TYPES>) where I<N> is the number of dimensions in the data and
+I<M> is the number of data elements.
+
+C<weight> may be specified with coords to indicate weighted data.
+
+C<coords> is useful if the data cube is not fully populated; for dense
+data, use C<weight> I<instead>.
+
+=item C<dtol> => I<positive number>
+
+I<Optional>.  If specified iteration will cease when successive centers are closer
+than the specified distance.
+
+=item C<iterlim> => I<positive integer>
+
+I<Optional>. The maximum number of iterations to run.  Defaults to 10.
+
+=item C<log> => I<coderef>
+
+I<Optional>. A subroutine which will be called before the first iteration and at
+the end of each iteration. It is passed a copy of the current
+iteration's results object; see L</Sigma Clip Iteration Results>.
+
+=item C<mask> => I<piddle>
+
+I<Optional>. This specifies data elements to ignore completely.
+True values indicate elements to be used, false those to be ignored.
+
+When used with C<coords>, C<mask> must be a piddle of shape I<M>,
+where I<M> is the number of data elements in C<coords>.
+
+If C<coords> is not specified, C<mask> should have the same shape as
+C<weight>.
+
+=item C<nsigma> => I<scalar>
+
+The size of the clipping radius, in units of the standard deviation.
 
 =item C<weight> => I<piddle>
 
-I<Optional> (see C<coords>)
+I<Optional>. Data weights. When used with C<coords>, C<weight> must be
+a piddle of shape I<M>, where I<M> is the number of data elements in
+C<coords>. If C<coords> is not specified, C<weight> is a piddle of
+shape I<NxM>, where I<N> is the number of dimensions in the data and
+I<M> is the number of data elements.
 
-Data weights.
+=back
 
-For sparse data (i.e., when used with C<coords>)
-C<weight> must be a piddle of shape I<M>, where I<M> is the number of
-data elements in C<coords>.
+=head3 Sigma Clip Results
 
-For densely packed data, C<weight> is a piddle of shape I<NxM>, where
+B<sigma_clip> returns an object which includes all of the attributes
+from the final iteration object (See L</Sigma Clip Iterations> ), with
+the following additional attributes/methods:
 
 =over
 
-=item I<N> is the number of dimensions in the data
+=item C<iterations> => I<arrayref>
 
-=item I<M> is the number of data elements
+An array of results objects for each iteration.
 
-=back
+=item C<success> => I<boolean>
 
-=item C<mask> = I<piddle>
+True if the iteration converged, false otherwise.
 
-I<Optional>
+=item C<error> => I<error object>
 
-This specifies data elements to ignore completely.
-True values indicate elements to be used, false those to be ignored.
-
-For sparse data (i.e., when used with C<coords>) C<mask> must be a
-piddle of shape I<M>, where I<M> is the number of data elements in
-C<coords>.
-
-For densely packed data, C<mask> should have the same shape as C<weight>.
-
-
-=item C<center|centre> => I<arrayref>|I<1D piddle>|I<coderef>
-
-I<Optional>
-
-The initial center.  Defaults to the (weighted) average of the data.
-
-=item C<is_converged> => I<subroutine reference>
-
-I<Optional>
-
-A subroutine which determines whether the iterations have converged.
-It is called with two iteration objects which contain information about the
-previous and current iterations, i.e.
-
-    $stop_iteration = is_converged( $last, $current );
-
-The structure of the objects is described in L</Iteration Results>.
-
-It should return true if convergence has been achieved, false
-otherwise.
-
-The C<is_converged> routine is passed references to the B<actual>
-objects used by B<sigma_clip> to keep track of the iterations.  This
-means that the C<is_converged> routine may manipulate the starting
-point for the next iteration by altering its C<$current> parameter.
-
-The default behavior is to stop if both the standard deviation and
-center have not changed between iterations, or if the C<dtol> option
-was specified, the centers are closer than C<dtol>.
-
-=item C<iterlim> => I<integer>
-
-I<Optional>
-
-The maximum number of iterations to run.  Defaults to 10.
-
-=item C<dtol> => I<float>
-
-I<Optional>
-
-If specified, and the default convergence behavior is in use (see the
-C<is_converged> option) iteration will cease when successive centers are
-closer than the specified distance.
-
-=item C<log> => I<subroutine reference>
-
-I<Optional>
-
-A subroutine which will be called at the end of each iteration. It is passed
-a copy of the current iteration's results object see L</Iteration Results>).
-
-
-=item C<transform> => PDL::Transform object
-
-This is applied to the coordinates prior to centroiding.
+If convergence has failed, this will contain an error object
+describing the failure.  See L</Errors>.
 
 =back
 
-=head3 Iteration Results
+=head4 Sigma Clip Iterations
 
-The results for each iteration are stored in object of class
-C<PDL::Algorithm::Center::sigma_clip::Iteration> with the
+The results for each iteration are stored in an object with the
 following attributes/methods:
 
 =over
@@ -358,87 +350,27 @@ clipping and mask exclusion.
 
 The number of data elements used in the center.
 
-=item C<weight> => I<float>
+=item C<weight> => I<number>
 
 The combined weight of the data elements used to determine the center.
 
-=item C<sigma> => I<float|undef>
+=item C<sigma> => I<number|undef>
 
-The standard deviation of the data.  The value for the last iteration
-will be undefined if all of the elements have been clipped.
+The standard deviation of the clipped data.  The value for the last
+iteration will be undefined if all of the elements have been clipped.
 
-=item C<variance> => I<float|undef>
-
-The calculated variance (i.e., C<sqrt( sigma )>.  The value for the
-last iteration will be undefined if all of the elements have been
-clipped.
-
-=item C<clip> => I<float|undef>
+=item C<clip> => I<number|undef>
 
 The clipping radius.  This will be undefined for the first iteration
 if the C<clip> option was not specified.
 
-=item C<dist> => I<float>
+=item C<dist> => I<number>
 
-I<Optional>
-
-The distance between the previous and current centers. This is present
-only if the default convergence routine is in use.
+I<Optional>. The distance between the previous and current centers. This is defined
+only if the C<dtol> option was passed.
 
 =back
 
-=head3 Returned Results
-
-B<sigma_clip> returns an object of class
-C<PDL::Algorithm::Center::sigma_clip::Result>.  It is a subclass of
-C<PDL::Algorithm::Center::sigma_clip::Iteration> (the common
-attributes refer to the results of the final iteration) with these
-additional attributes/methods:
-
-=over
-
-=item C<iterations> => I<arrayref>
-
-A list of the iteration result objects.
-
-=item C<success> => I<boolean>
-
-True if the iteration converged, false otherwise.
-
-=item C<error> => I<error object>
-
-If convergence has failed, this will contain an error object
-describing the failure.  See L</Errors>.
-
-=back
-
-
-=head3 Errors
-
-Errors are represented as objects in the following classes:
-
-=over
-
-=item Parameter Validation
-
-These are unconditionally thrown.
-
-  PDL::Algorithm::Center::parameter
-  PDL::Algorithm::Center::parameter::type
-  PDL::Algorithm::Center::parameter::dimension
-  PDL::Algorithm::Center::parameter::missing
-  PDL::Algorithm::Center::parameter::value
-
-=item Iteration
-
-These are stored in the result object's C<error> attribute.
-
-  PDL::Algorithm::Center::iteration::limit_reached
-  PDL::Algorithm::Center::iteration::empty
-
-=back
-
-The objects stringify to a failure message.
 
 =cut
 
@@ -560,6 +492,397 @@ sub sigma_clip {
 }
 
 
+=sub iterate
+
+  $result = iterate(
+    center       => Center | CodeRef,
+    initialize   => CodeRef,
+    calc_center  => CodeRef,
+    calc_wmask   => CodeRef,
+    is_converged => CodeRef,
+    coords       => Coords,
+    iterlim      => PositiveInt,
+    log          => Optional [CodeRef],
+    mask         => Optional [Piddle1D_ne],
+    weight       => Optional [Piddle1D_ne],
+  );
+
+A generic iteration loop for centering data using callbacks for
+calculating centers, weight masks, and iteration completion.
+
+=head3 Options
+
+The following options are accepted:
+
+=over
+
+=item C<center> => I<Piddle1D_ne | coderef >
+
+The initial center.  It may either be a piddle with shape I<N> (or
+something that can be coerced into one, see L</TYPES>) or a coderef
+which will return the center as a piddle with shape I<N>.  The coderef
+is called as
+
+  $initial_center = &$center( $coords, $wmask, $weight );
+
+with
+
+=over
+
+=item C<$coords>
+
+a piddle with shape I<NxM> containing I<M> coordinates with dimension I<N>
+
+=item C<$wmask>
+
+a piddle of shape I<M> containing weights
+
+=item C<$weight>
+
+a scalar which is the sum of the weights in C<$wmask>
+
+=back
+
+=item C<initialize> => I<coderef>
+
+This subroutine should initialize the current iteration object
+and any private storage needed by the callback routines.
+
+It is invoked as:
+
+  &$initialize( $coords, $wmask, $current, $work );
+
+with
+
+=over
+
+=item C<$coords>
+
+a piddle of shape I<NxM> with the coordinates of each element
+
+=item C<$wmask>
+
+a piddle of shape I<M> with weights for each element
+
+=item C<$current>
+
+a reference to a L<Hash::Wrap> based object containing data
+for the current iteration.  C<initialize> may augment the
+underlying hash with its own data. The following attributes are
+provided by C<iterate>:
+
+=over
+
+=item C<nelem>
+
+the number of elements
+
+=item C<weight>
+
+the sum of the weights of the elements
+
+=back
+
+=item C<$work>
+
+a hashref which C<is_converged> may use to store temporary data (e.g. work
+piddles) which will be available to it upon every invocation. It is
+also passed to the L</calc_wmask> and L</calc_center> routines.
+
+=back
+
+=item C<calc_center> => I<coderef>
+
+This subroutine should return a piddle of shape I<N> with the
+calculated center.
+
+It will be called as:
+
+  $center = &$calc_center( $coords, $wmask, $current, $work );
+
+with
+
+=over
+
+=item C<$coords>
+
+a piddle of shape I<NxM> with the coordinates of each element
+
+=item C<$wmask>
+
+a piddle of shape I<M> with weights for each element
+
+=item C<$current>
+
+a reference to a L<Hash::Wrap> based object containing
+data for the current iteration.
+
+C<calc_center> may augment the underlying hash with its own data. The
+following attributes are provided by C<iterate>:
+
+=over
+
+=item C<nelem>
+
+the number of elements
+
+=item C<weight>
+
+the sum of the weights of the elements
+
+=back
+
+=item C<$work>
+
+a hashref which C<calc_center> may use to store temporary data
+(e.g. work piddles) which will be available to it upon every
+invocation. It is also passed to the L</calc_wmask> and
+L</is_converged> routines.
+
+=back
+
+=item C<calc_wmask> => I<coderef>
+
+This subroutine should determine the current weight for each element.
+To ignore an element set its weight to zero.
+
+It will be called as:
+
+  &$calc_mask( $coords, $wmask, $current, $work );
+
+with
+
+=over
+
+=item C<$coords>
+
+a piddle of shape I<NxM> with the coordinates of each element
+
+=item C<$wmask>
+
+a piddle of shape I<M> with the initial weights for each element( as
+passed via the C<weight> option). C<calc_mask> should update it for
+the current iteration.
+
+=item C<$current>
+
+a reference to a L<Hash::Wrap> based object containing
+data for the current iteration.
+
+C<calc_center> may augment the underlying hash with its own data. The
+following attributes are provided by C<iterate>:
+
+=over
+
+=item C<nelem>
+
+the number of elements with non-zero weight.  If C<calc_mask> changes
+C<$wmask>, this must either be updated or set to the undefined value.
+
+=item C<weight>
+
+the sum of the weights of the elements.  If C<calc_mask> changes
+C<$wmask>, this must either be updated or set to the undefined value.
+
+=back
+
+=item C<$work>
+
+a hashref which C<calc_wmask> may use to store temporary data
+(e.g. work piddles) which will be available to it upon every
+invocation. It is also passed to the L</calc_center> and
+L</is_converged> routines.
+
+=back
+
+=item C<is_converged> => I<coderef>
+
+This subroutine should return a boolean value indicating whether the
+iteration has converged.
+
+It is invoked as:
+
+  $bool = &$is_converged( $coords, $wmask, $last, $current, $work );
+
+with
+
+=over
+
+=item C<$coords>
+
+a piddle of shape I<NxM> with the coordinates of each element
+
+=item C<$wmask>
+
+a piddle of shape I<M> with weights for each element
+
+=item C<$last>
+
+a reference to a L<Hash::Wrap> based object containing data
+for the previous iteration.  C<is_converged> may augment the
+underlying hash with its own data. The following attributes are
+provided by C<iterate>:
+
+=over
+
+=item C<nelem>
+
+the number of elements
+
+=item C<weight>
+
+the sum of the weights of the elements
+
+=back
+
+=item C<$current>
+
+a reference to a L<Hash::Wrap> based object
+containing data for the current iteration, with attributes as
+described above for C<$last>
+
+=item C<$work>
+
+a hashref which C<is_converged> may use to store temporary data (e.g. work
+piddles) which will be available to it upon every invocation. It is
+also passed to the L</calc_wmask> and L</calc_center> routines.
+
+=back
+
+The C<is_converged> routine is passed references to the B<actual>
+objects used by B<sigma_clip> to keep track of the iterations.  This
+means that the C<is_converged> routine may manipulate the starting
+point for the next iteration by altering its C<$current> parameter.
+
+C<is_converged> is called prior to entering the iteration loop with
+C<$last> set to C<undef>.  This allows priming the C<$current> structure,
+which will be used as C<$last> in the first iteration.
+
+=item C<coords> => I<Coords>
+
+The coordinates to center.  C<coords> is a piddle of
+shape I<NxM> (or anything which can be coerced into it, see
+L</TYPES>) where I<N> is the number of dimensions in the data and
+I<M> is the number of data elements.
+
+=item C<iterlim>
+
+a positive integer specifying the maximum number of iterations.
+
+=item C<log> => I<coderef>
+
+I<Optional>. A subroutine which will be called
+
+=over
+
+=item between the first call to C<is_converged> the start of the first iteration
+
+=item after each iteration
+
+=back
+
+It is invoked as
+
+  &$log( $iteration );
+
+where C<$iteration> is a I<copy> of the current iteration object.  The object will
+have at least the following fields:
+
+=over
+
+=item C<center> => I<piddle|undef>
+
+A piddle of shape I<N> containing the derived center.  The value for
+the last iteration will be undefined if all of the elements have been
+clipped.
+
+=item C<iter>
+
+The iteration index
+
+=item C<nelem>
+
+The number of elements in the current selected set.
+
+=item C<weight>
+
+The summed weight of the selected elements.
+
+=back
+
+There may be other attributes added by the various callbacks
+(C<calc_wmask>, C<calc_center>, C<is_converged>). See for example,
+L</Sigma Clip Iterations>.
+
+=item C<mask> => I<piddle>
+
+I<Optional>. This specifies data elements to ignore completely.
+True values indicate elements to be used, false those to be ignored.
+
+When used with C<coords>, C<mask> must be a piddle of shape I<M>,
+where I<M> is the number of data elements in C<coords>.
+
+If C<coords> is not specified, C<mask> should have the same shape as
+C<weight>.
+
+
+=item C<weight> => I<piddle>
+
+I<Optional>. Data weights.  When used with C<coords>, C<weight> must
+be a piddle of shape I<M>, where I<M> is the number of data elements
+in C<coords>. If C<coords> is not specified, C<weight> is a piddle of
+shape I<NxM>, where I<N> is the number of dimensions in the data and
+I<M> is the number of data elements.
+
+=back
+
+=head3 Iteration steps
+
+The steps are:
+
+=over
+
+=item 1
+
+Extract an initial center from C<center>.
+
+=item 2
+
+Call C<initialize>.
+
+=item 3
+
+Call C<log>
+
+=item 4
+
+Call C<calc_wmask>
+
+=item 5
+
+Update summed weight and number of elements if C<calc_wmask> sets them to C<undef>.
+
+=item 6
+
+Call C<calc_center>
+
+=item 7
+
+Call C<is_converged>
+
+=item 8
+
+Call C<log>
+
+=item 9
+
+Goto step 4 if not converged and iteration limit has not been reached.
+
+
+=back
+
+=cut
+
 sub iterate {
 
     state $check = compile_named(
@@ -601,7 +924,6 @@ sub iterate {
     my $wmask_base_weight = $wmask_base->dsum;
     my $wmask_base_nelem  = ( $wmask_base > 0 )->dsum;
 
-
     $opt->center( $opt->center->( $opt->coords, $wmask_base, $wmask_base_weight ) )
       if is_coderef( $opt->center );
 
@@ -616,8 +938,6 @@ sub iterate {
 
     my @iteration;
 
-    # storage to avoid more memory thrashing. will get allocated upon
-    # first use
     my $wmask = $wmask_base->copy;
     my $work  = {};
 
@@ -696,8 +1016,77 @@ __END__
 
 =pod
 
-=head1 SYNOPSIS
+=head1 DESCRIPTION
 
+C<PDL::Algorithm::Center> is a collection of algorithms which
+specialize in centering datasets.
+
+
+=head1 SUBROUTINES
+
+See L</TYPES> for information on the types used in the subroutine descriptions.
+
+
+=head1 TYPES
+
+In the L<description of the subroutines|/Subroutines>, the following
+types are specified:
+
+=over
+
+=item Center
+
+This accepts a non-null, non-empty 1D piddle, or anything that can be converted
+into one (for example, a scalar, a scalar piddle, or an array of numbers );
+
+=item CodeRef
+
+A code reference.
+
+=item PositiveNum
+
+A positive real number.
+
+=item PositiveInt
+
+A positive integer.
+
+=item Coords
+
+This accepts a non-null, non-empty 2D piddle, or anything that can be converted or
+up-converted to it.
+
+=item Piddle_min1D_ne
+
+This accepts a non-null, non-empty piddle with a minimum of 1 dimension.
+
+=item Piddle1D_ne
+
+This accepts a non-null, non-empty 1D piddle.
+
+=back
+
+=head1 ERRORS
+
+Errors are represented as objects in the following classes:
+
+=over
+
+=item Parameter Validation
+
+These are unconditionally thrown.
+
+  PDL::Algorithm::Center::parameter
+
+=item Iteration
+
+These are stored in the result object's C<error> attribute.
+
+  PDL::Algorithm::Center::iteration::limit_reached
+  PDL::Algorithm::Center::iteration::empty
+
+=back
+
+The objects stringify to a failure message.
 
 =head1 SEE ALSO
-

@@ -6,37 +6,48 @@ PDL::Algorithm::Center - Various methods of finding the center of a sample
 
 version 0.01
 
-# SYNOPSIS
+# DESCRIPTION
+
+`PDL::Algorithm::Center` is a collection of algorithms which
+specialize in centering datasets.
 
 # SUBROUTINES
 
-## iterate
+See ["TYPES"](#types) for information on the types used in the subroutine descriptions.
 
-Center a dataset by iteratively excluding data outside of a radius equal to a specified number of standard deviations
+## sigma\_clip
 
-Elements may be individually weighted.
+     $results = sigma_clip(
+       center    => Optional [ Center | CodeRef ],
+       clip      => Optional [PositiveNum],
+       coords    => Optional [Coords],
+       dtol      => PositiveNum,
+       iterlim   => Optional [PositiveInt],
+       log       => Optional [CodeRef],
+       mask      => Optional [Piddle_min1D_ne],
+       nsigma    => PositiveNum,
+       weight    => Optional [Piddle_min1D_ne],
+    );
 
-Usage:
+Center a dataset by iteratively excluding data outside of a radius
+equal to a specified number of standard deviations. The dataset may be
+specified as a list of coordinates and optional weights, or as a
+weight piddle of shape _NxM_ (e.g., an image).  If only the weight
+piddle is provided, it is converted internally into a list of
+coordinates with associated weights.
 
-    $results = sigma_clip( coords => $coords,
-                           weight => $weight,
-                           mask   => $mask,
-                           %opts);
+The center of a data set is determined by:
 
-    $results = sigma_clip( weight => $img, %opts);
-
-**sigma\_clip** finds the center of a data set by:
-
-1. ignoring the data whose distance to the current center is greater than
-a specified number of standard deviations
+1. clipping (ignoring) the data whose distance to the current center is
+greater than a specified number of standard deviations
 2. calculating a new center by performing a (weighted) centroid of the
 remaining data
-3. calculating the standard deviation of the distance from the data to
-the center
-4. repeat at step 1 until either a convergence tolerance has been met or
+3. calculating the standard deviation of the distance from the remaining
+data to the center
+4. repeat step 1 until either a convergence tolerance has been met or
 the iteration limit has been exceeded
 
-The initial center may be explicitly specified, or may be calculated
+The initial center may be explicitly specified,  or may be calculated
 by performing a (weighted) centroid of the data.
 
 The initial standard deviation is calculated using the initial center and either
@@ -44,109 +55,107 @@ the entire dataset, or from a clipped region about the initial center.
 
 ### Options
 
-The following (case-insensitive) options are available:
+The following options are available:
 
-- `coords` => _arrayref|piddle_
+- `center` => _Piddle1D\_ne | coderef _
 
-    _Optional_ (see `weight`)
+    The initial center.  It may either be a piddle with shape _N_, (or
+    something that can be coerced into one, see ["TYPES"](#types)), or it may be
+    a coderef which will return the center as a piddle with shape _N_.
+    The subroutine is called as
 
-    The coordinates to center.  `coords` may be either a _N_ element
-    list of piddles of shape _M_ or a single piddle of shape _NxM_, where
+        &$center( $coords, $wmask, $weight );
 
-    - _N_ is the number of dimensions in the data
-    - _M_ is the number of data elements
+    with
 
-    `coords` is useful if the data are sparse; for dense data, use `weight` instead.
+    - `$coords`
 
-    `weight` may be specified with coords for sparse, weighted data.
+        a piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
+
+    - `$wmask`
+
+        a piddle of shape _M_ containing weights
+
+    - `$weight`
+
+        a scalar which is the sum of the weights in `$wmask`
+
+- `clip` => _positive number_
+
+    _Optional_.  The clipping radius used to determine the initial standard deviation.
+
+- `coords` => _Coords_
+
+    _Optional_.  The coordinates to center.  `coords` is a piddle of
+    shape _NxM_ (or anything which can be coerced into it, see
+    ["TYPES"](#types)) where _N_ is the number of dimensions in the data and
+    _M_ is the number of data elements.
+
+    `weight` may be specified with coords to indicate weighted data.
+
+    `coords` is useful if the data cube is not fully populated; for dense
+    data, use `weight` _instead_.
+
+- `dtol` => _positive number_
+
+    _Optional_.  If specified iteration will cease when successive centers are closer
+    than the specified distance.
+
+- `iterlim` => _positive integer_
+
+    _Optional_. The maximum number of iterations to run.  Defaults to 10.
+
+- `log` => _coderef_
+
+    _Optional_. A subroutine which will be called before the first iteration and at
+    the end of each iteration. It is passed a copy of the current
+    iteration's results object; see ["Sigma Clip Iteration Results"](#sigma-clip-iteration-results).
+
+- `mask` => _piddle_
+
+    _Optional_. This specifies data elements to ignore completely.
+    True values indicate elements to be used, false those to be ignored.
+
+    When used with `coords`, `mask` must be a piddle of shape _M_,
+    where _M_ is the number of data elements in `coords`.
+
+    If `coords` is not specified, `mask` should have the same shape as
+    `weight`.
+
+- `nsigma` => _scalar_
+
+    The size of the clipping radius, in units of the standard deviation.
 
 - `weight` => _piddle_
 
-    _Optional_ (see `coords`)
+    _Optional_. Data weights. When used with `coords`, `weight` must be
+    a piddle of shape _M_, where _M_ is the number of data elements in
+    `coords`. If `coords` is not specified, `weight` is a piddle of
+    shape _NxM_, where _N_ is the number of dimensions in the data and
+    _M_ is the number of data elements.
 
-    Data weights.
+### Sigma Clip Results
 
-    For sparse data (i.e., when used with `coords`)
-    `weight` must be a piddle of shape _M_, where _M_ is the number of
-    data elements in `coords`.
+**sigma\_clip** returns an object which includes all of the attributes
+from the final iteration object (See ["Sigma Clip Iterations"](#sigma-clip-iterations) ), with
+the following additional attributes/methods:
 
-    For densely packed data, `weight` is a piddle of shape _NxM_, where
+- `iterations` => _arrayref_
 
-    - _N_ is the number of dimensions in the data
-    - _M_ is the number of data elements
+    An array of results objects for each iteration.
 
-- `mask` = _piddle_
+- `success` => _boolean_
 
-    _Optional_
+    True if the iteration converged, false otherwise.
 
-    This specifies data elements to ignore completely.
-    True values indicate elements to be used, false those to be ignored.
+- `error` => _error object_
 
-    For sparse data (i.e., when used with `coords`) `mask` must be a
-    piddle of shape _M_, where _M_ is the number of data elements in
-    `coords`.
+    If convergence has failed, this will contain an error object
+    describing the failure.  See ["Errors"](#errors).
 
-    For densely packed data, `mask` should have the same shape as `weight`.
+#### Sigma Clip Iterations
 
-- `center|centre` => _arrayref_|_1D piddle_|_coderef_
-
-    _Optional_
-
-    The initial center.  Defaults to the (weighted) average of the data.
-
-- `is_converged` => _subroutine reference_
-
-    _Optional_
-
-    A subroutine which determines whether the iterations have converged.
-    It is called with two iteration objects which contain information about the
-    previous and current iterations, i.e.
-
-        $stop_iteration = is_converged( $last, $current );
-
-    The structure of the objects is described in ["Iteration Results"](#iteration-results).
-
-    It should return true if convergence has been achieved, false
-    otherwise.
-
-    The `is_converged` routine is passed references to the **actual**
-    objects used by **sigma\_clip** to keep track of the iterations.  This
-    means that the `is_converged` routine may manipulate the starting
-    point for the next iteration by altering its `$current` parameter.
-
-    The default behavior is to stop if both the standard deviation and
-    center have not changed between iterations, or if the `dtol` option
-    was specified, the centers are closer than `dtol`.
-
-- `iterlim` => _integer_
-
-    _Optional_
-
-    The maximum number of iterations to run.  Defaults to 10.
-
-- `dtol` => _float_
-
-    _Optional_
-
-    If specified, and the default convergence behavior is in use (see the
-    `is_converged` option) iteration will cease when successive centers are
-    closer than the specified distance.
-
-- `log` => _subroutine reference_
-
-    _Optional_
-
-    A subroutine which will be called at the end of each iteration. It is passed
-    a copy of the current iteration's results object see ["Iteration Results"](#iteration-results)).
-
-- `transform` => PDL::Transform object
-
-    This is applied to the coordinates prior to centroiding.
-
-### Iteration Results
-
-The results for each iteration are stored in object of class
-`PDL::Algorithm::Center::sigma_clip::Iteration` with the
+The results for each iteration are stored in an object with the
 following attributes/methods:
 
 - `center` => _piddle|undef_
@@ -164,55 +173,369 @@ following attributes/methods:
 
     The number of data elements used in the center.
 
-- `weight` => _float_
+- `weight` => _number_
 
     The combined weight of the data elements used to determine the center.
 
-- `sigma` => _float|undef_
+- `sigma` => _number|undef_
 
-    The standard deviation of the data.  The value for the last iteration
-    will be undefined if all of the elements have been clipped.
+    The standard deviation of the clipped data.  The value for the last
+    iteration will be undefined if all of the elements have been clipped.
 
-- `variance` => _float|undef_
-
-    The calculated variance (i.e., `sqrt( sigma )`.  The value for the
-    last iteration will be undefined if all of the elements have been
-    clipped.
-
-- `clip` => _float|undef_
+- `clip` => _number|undef_
 
     The clipping radius.  This will be undefined for the first iteration
     if the `clip` option was not specified.
 
-- `dist` => _float_
+- `dist` => _number_
 
-    _Optional_
+    _Optional_. The distance between the previous and current centers. This is defined
+    only if the `dtol` option was passed.
 
-    The distance between the previous and current centers. This is present
-    only if the default convergence routine is in use.
+## iterate
 
-### Returned Results
+    $result = iterate(
+      center       => Center | CodeRef,
+      initialize   => CodeRef,
+      calc_center  => CodeRef,
+      calc_wmask   => CodeRef,
+      is_converged => CodeRef,
+      coords       => Coords,
+      iterlim      => PositiveInt,
+      log          => Optional [CodeRef],
+      mask         => Optional [Piddle1D_ne],
+      weight       => Optional [Piddle1D_ne],
+    );
 
-**sigma\_clip** returns an object of class
-`PDL::Algorithm::Center::sigma_clip::Result`.  It is a subclass of
-`PDL::Algorithm::Center::sigma_clip::Iteration` (the common
-attributes refer to the results of the final iteration) with these
-additional attributes/methods:
+A generic iteration loop for centering data using callbacks for
+calculating centers, weight masks, and iteration completion.
 
-- `iterations` => _arrayref_
+### Options
 
-    A list of the iteration result objects.
+The following options are accepted:
 
-- `success` => _boolean_
+- `center` => _Piddle1D\_ne | coderef _
 
-    True if the iteration converged, false otherwise.
+    The initial center.  It may either be a piddle with shape _N_ (or
+    something that can be coerced into one, see ["TYPES"](#types)) or a coderef
+    which will return the center as a piddle with shape _N_.  The coderef
+    is called as
 
-- `error` => _error object_
+        $initial_center = &$center( $coords, $wmask, $weight );
 
-    If convergence has failed, this will contain an error object
-    describing the failure.  See ["Errors"](#errors).
+    with
 
-### Errors
+    - `$coords`
+
+        a piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
+
+    - `$wmask`
+
+        a piddle of shape _M_ containing weights
+
+    - `$weight`
+
+        a scalar which is the sum of the weights in `$wmask`
+
+- `initialize` => _coderef_
+
+    This subroutine should initialize the current iteration object
+    and any private storage needed by the callback routines.
+
+    It is invoked as:
+
+        &$initialize( $coords, $wmask, $current, $work );
+
+    with
+
+    - `$coords`
+
+        a piddle of shape _NxM_ with the coordinates of each element
+
+    - `$wmask`
+
+        a piddle of shape _M_ with weights for each element
+
+    - `$current`
+
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data
+        for the current iteration.  `initialize` may augment the
+        underlying hash with its own data. The following attributes are
+        provided by `iterate`:
+
+        - `nelem`
+
+            the number of elements
+
+        - `weight`
+
+            the sum of the weights of the elements
+
+    - `$work`
+
+        a hashref which `is_converged` may use to store temporary data (e.g. work
+        piddles) which will be available to it upon every invocation. It is
+        also passed to the ["calc\_wmask"](#calc_wmask) and ["calc\_center"](#calc_center) routines.
+
+- `calc_center` => _coderef_
+
+    This subroutine should return a piddle of shape _N_ with the
+    calculated center.
+
+    It will be called as:
+
+        $center = &$calc_center( $coords, $wmask, $current, $work );
+
+    with
+
+    - `$coords`
+
+        a piddle of shape _NxM_ with the coordinates of each element
+
+    - `$wmask`
+
+        a piddle of shape _M_ with weights for each element
+
+    - `$current`
+
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing
+        data for the current iteration.
+
+        `calc_center` may augment the underlying hash with its own data. The
+        following attributes are provided by `iterate`:
+
+        - `nelem`
+
+            the number of elements
+
+        - `weight`
+
+            the sum of the weights of the elements
+
+    - `$work`
+
+        a hashref which `calc_center` may use to store temporary data
+        (e.g. work piddles) which will be available to it upon every
+        invocation. It is also passed to the ["calc\_wmask"](#calc_wmask) and
+        ["is\_converged"](#is_converged) routines.
+
+- `calc_wmask` => _coderef_
+
+    This subroutine should determine the current weight for each element.
+    To ignore an element set its weight to zero.
+
+    It will be called as:
+
+        &$calc_mask( $coords, $wmask, $current, $work );
+
+    with
+
+    - `$coords`
+
+        a piddle of shape _NxM_ with the coordinates of each element
+
+    - `$wmask`
+
+        a piddle of shape _M_ with the initial weights for each element( as
+        passed via the `weight` option). `calc_mask` should update it for
+        the current iteration.
+
+    - `$current`
+
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing
+        data for the current iteration.
+
+        `calc_center` may augment the underlying hash with its own data. The
+        following attributes are provided by `iterate`:
+
+        - `nelem`
+
+            the number of elements with non-zero weight.  If `calc_mask` changes
+            `$wmask`, this must either be updated or set to the undefined value.
+
+        - `weight`
+
+            the sum of the weights of the elements.  If `calc_mask` changes
+            `$wmask`, this must either be updated or set to the undefined value.
+
+    - `$work`
+
+        a hashref which `calc_wmask` may use to store temporary data
+        (e.g. work piddles) which will be available to it upon every
+        invocation. It is also passed to the ["calc\_center"](#calc_center) and
+        ["is\_converged"](#is_converged) routines.
+
+- `is_converged` => _coderef_
+
+    This subroutine should return a boolean value indicating whether the
+    iteration has converged.
+
+    It is invoked as:
+
+        $bool = &$is_converged( $coords, $wmask, $last, $current, $work );
+
+    with
+
+    - `$coords`
+
+        a piddle of shape _NxM_ with the coordinates of each element
+
+    - `$wmask`
+
+        a piddle of shape _M_ with weights for each element
+
+    - `$last`
+
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data
+        for the previous iteration.  `is_converged` may augment the
+        underlying hash with its own data. The following attributes are
+        provided by `iterate`:
+
+        - `nelem`
+
+            the number of elements
+
+        - `weight`
+
+            the sum of the weights of the elements
+
+    - `$current`
+
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object
+        containing data for the current iteration, with attributes as
+        described above for `$last`
+
+    - `$work`
+
+        a hashref which `is_converged` may use to store temporary data (e.g. work
+        piddles) which will be available to it upon every invocation. It is
+        also passed to the ["calc\_wmask"](#calc_wmask) and ["calc\_center"](#calc_center) routines.
+
+    The `is_converged` routine is passed references to the **actual**
+    objects used by **sigma\_clip** to keep track of the iterations.  This
+    means that the `is_converged` routine may manipulate the starting
+    point for the next iteration by altering its `$current` parameter.
+
+    `is_converged` is called prior to entering the iteration loop with
+    `$last` set to `undef`.  This allows priming the `$current` structure,
+    which will be used as `$last` in the first iteration.
+
+- `coords` => _Coords_
+
+    The coordinates to center.  `coords` is a piddle of
+    shape _NxM_ (or anything which can be coerced into it, see
+    ["TYPES"](#types)) where _N_ is the number of dimensions in the data and
+    _M_ is the number of data elements.
+
+- `iterlim`
+
+    a positive integer specifying the maximum number of iterations.
+
+- `log` => _coderef_
+
+    _Optional_. A subroutine which will be called
+
+    - between the first call to `is_converged` the start of the first iteration
+    - after each iteration
+
+    It is invoked as
+
+        &$log( $iteration );
+
+    where `$iteration` is a _copy_ of the current iteration object.  The object will
+    have at least the following fields:
+
+    - `center` => _piddle|undef_
+
+        A piddle of shape _N_ containing the derived center.  The value for
+        the last iteration will be undefined if all of the elements have been
+        clipped.
+
+    - `iter`
+
+        The iteration index
+
+    - `nelem`
+
+        The number of elements in the current selected set.
+
+    - `weight`
+
+        The summed weight of the selected elements.
+
+    There may be other attributes added by the various callbacks
+    (`calc_wmask`, `calc_center`, `is_converged`). See for example,
+    ["Sigma Clip Iterations"](#sigma-clip-iterations).
+
+- `mask` => _piddle_
+
+    _Optional_. This specifies data elements to ignore completely.
+    True values indicate elements to be used, false those to be ignored.
+
+    When used with `coords`, `mask` must be a piddle of shape _M_,
+    where _M_ is the number of data elements in `coords`.
+
+    If `coords` is not specified, `mask` should have the same shape as
+    `weight`.
+
+- `weight` => _piddle_
+
+    _Optional_. Data weights.  When used with `coords`, `weight` must
+    be a piddle of shape _M_, where _M_ is the number of data elements
+    in `coords`. If `coords` is not specified, `weight` is a piddle of
+    shape _NxM_, where _N_ is the number of dimensions in the data and
+    _M_ is the number of data elements.
+
+### Iteration steps
+
+The steps are:
+
+1. Extract an initial center from `center`.
+2. Call `initialize`.
+3. Call `log`
+4. Call `calc_wmask`
+5. Update summed weight and number of elements if `calc_wmask` sets them to `undef`.
+6. Call `calc_center`
+7. Call `is_converged`
+8. Call `log`
+9. Goto step 4 if not converged and iteration limit has not been reached.
+
+# TYPES
+
+In the [description of the subroutines](#subroutines), the following
+types are specified:
+
+- Center
+
+    This accepts a non-null, non-empty 1D piddle, or anything that can be converted
+    into one (for example, a scalar, a scalar piddle, or an array of numbers );
+
+- CodeRef
+
+    A code reference.
+
+- PositiveNum
+
+    A positive real number.
+
+- PositiveInt
+
+    A positive integer.
+
+- Coords
+
+    This accepts a non-null, non-empty 2D piddle, or anything that can be converted or
+    up-converted to it.
+
+- Piddle\_min1D\_ne
+
+    This accepts a non-null, non-empty piddle with a minimum of 1 dimension.
+
+- Piddle1D\_ne
+
+    This accepts a non-null, non-empty 1D piddle.
+
+# ERRORS
 
 Errors are represented as objects in the following classes:
 
@@ -221,10 +544,6 @@ Errors are represented as objects in the following classes:
     These are unconditionally thrown.
 
         PDL::Algorithm::Center::parameter
-        PDL::Algorithm::Center::parameter::type
-        PDL::Algorithm::Center::parameter::dimension
-        PDL::Algorithm::Center::parameter::missing
-        PDL::Algorithm::Center::parameter::value
 
 - Iteration
 
