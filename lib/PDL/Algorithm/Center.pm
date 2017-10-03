@@ -545,8 +545,8 @@ a scalar which is the sum of the weights in C<$wmask>
 
 =item C<initialize> => I<coderef>
 
-This subroutine should initialize the current iteration object
-and any private storage needed by the callback routines.
+This subroutine should initialize the passed iteration object
+and work storage.
 
 It is invoked as:
 
@@ -566,10 +566,10 @@ a piddle of shape I<M> with weights for each element
 
 =item C<$current>
 
-a reference to a L<Hash::Wrap> based object containing data
-for the current iteration.  C<initialize> may augment the
-underlying hash with its own data. The following attributes are
-provided by C<iterate>:
+a reference to a L<Hash::Wrap> based object containing data for the
+current iteration.  C<initialize> may augment the underlying hash with
+its own data (but see L</Iteration Objects>). The following attributes
+are provided by C<iterate>:
 
 =over
 
@@ -617,8 +617,9 @@ a piddle of shape I<M> with weights for each element
 a reference to a L<Hash::Wrap> based object containing
 data for the current iteration.
 
-C<calc_center> may augment the underlying hash with its own data. The
-following attributes are provided by C<iterate>:
+C<calc_center> may augment the underlying hash with its own data (but
+see L</Iteration Objects>). The following attributes are provided by
+C<iterate>:
 
 =over
 
@@ -666,11 +667,12 @@ the current iteration.
 
 =item C<$current>
 
-a reference to a L<Hash::Wrap> based object containing
-data for the current iteration.
+a reference to a L<Hash::Wrap> based object containing data for the
+current iteration.
 
-C<calc_center> may augment the underlying hash with its own data. The
-following attributes are provided by C<iterate>:
+C<calc_center> may augment the underlying hash with its own data (but
+see L</Iteration Objects>). The following attributes are provided by
+C<iterate>:
 
 =over
 
@@ -718,10 +720,10 @@ a piddle of shape I<M> with weights for each element
 
 =item C<$last>
 
-a reference to a L<Hash::Wrap> based object containing data
-for the previous iteration.  C<is_converged> may augment the
-underlying hash with its own data. The following attributes are
-provided by C<iterate>:
+a reference to a L<Hash::Wrap> based object containing data for the
+previous iteration.  C<is_converged> may augment the underlying hash
+with its own data (but see L</Iteration Objects>). The following
+attributes are provided by C<iterate>:
 
 =over
 
@@ -775,9 +777,9 @@ I<Optional>. A subroutine which will be called
 
 =over
 
-=item between the first call to C<is_converged> the start of the first iteration
+=item between the call to C<initialize> and the start of the first iteration
 
-=item after each iteration
+=item at the end of each iteration
 
 =back
 
@@ -836,9 +838,23 @@ I<M> is the number of data elements.
 
 =back
 
-=head3 Iteration steps
+=head3 Iteration Objects
 
-The steps are:
+Callbacks are provided with L<Hash::Wrap> based objects which contain
+the data for the current iteration.  They should add data to the
+objects underlying hash which records particulars about their specific
+operation,
+
+  $object->{new_element} = $value;
+
+but should not store unnecessary data there, as an iteration object's
+contents are I<copied> when the next iteration is started.  Instead,
+the passed C<work> hash should be used to store large data which will
+not be returned to the user.
+
+=head3 Iteration Steps
+
+Before the first iteration:
 
 =over
 
@@ -848,36 +864,49 @@ Extract an initial center from C<center>.
 
 =item 2
 
-Call C<initialize>.
+Create a new iteration object.
 
 =item 3
 
-Call C<log>
+Call C<initialize>.
 
 =item 4
 
+Call C<log>
+
+=back
+
+For each iteration:
+
+=over
+
+=item 1
+
+Creat a new iteration object by B<copying> the old one.
+
+=item 2
+
 Call C<calc_wmask>
 
-=item 5
+=item 3
 
 Update summed weight and number of elements if C<calc_wmask> sets them to C<undef>.
 
-=item 6
+=item 4
 
 Call C<calc_center>
 
-=item 7
+=item 5
 
 Call C<is_converged>
 
-=item 8
+=item 6
 
 Call C<log>
 
-=item 9
+=item 7
 
-Goto step 4 if not converged and iteration limit has not been reached.
-
+Goto step 1 if not converged and iteration limit has not been reached.
 
 =back
 

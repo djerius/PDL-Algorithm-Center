@@ -239,8 +239,8 @@ The following options are accepted:
 
 - `initialize` => _coderef_
 
-    This subroutine should initialize the current iteration object
-    and any private storage needed by the callback routines.
+    This subroutine should initialize the passed iteration object
+    and work storage.
 
     It is invoked as:
 
@@ -258,10 +258,10 @@ The following options are accepted:
 
     - `$current`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data
-        for the current iteration.  `initialize` may augment the
-        underlying hash with its own data. The following attributes are
-        provided by `iterate`:
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        current iteration.  `initialize` may augment the underlying hash with
+        its own data (but see ["Iteration Objects"](#iteration-objects)). The following attributes
+        are provided by `iterate`:
 
         - `nelem`
 
@@ -301,8 +301,9 @@ The following options are accepted:
         a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing
         data for the current iteration.
 
-        `calc_center` may augment the underlying hash with its own data. The
-        following attributes are provided by `iterate`:
+        `calc_center` may augment the underlying hash with its own data (but
+        see ["Iteration Objects"](#iteration-objects)). The following attributes are provided by
+        `iterate`:
 
         - `nelem`
 
@@ -342,11 +343,12 @@ The following options are accepted:
 
     - `$current`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing
-        data for the current iteration.
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        current iteration.
 
-        `calc_center` may augment the underlying hash with its own data. The
-        following attributes are provided by `iterate`:
+        `calc_center` may augment the underlying hash with its own data (but
+        see ["Iteration Objects"](#iteration-objects)). The following attributes are provided by
+        `iterate`:
 
         - `nelem`
 
@@ -386,10 +388,10 @@ The following options are accepted:
 
     - `$last`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data
-        for the previous iteration.  `is_converged` may augment the
-        underlying hash with its own data. The following attributes are
-        provided by `iterate`:
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        previous iteration.  `is_converged` may augment the underlying hash
+        with its own data (but see ["Iteration Objects"](#iteration-objects)). The following
+        attributes are provided by `iterate`:
 
         - `nelem`
 
@@ -435,8 +437,8 @@ The following options are accepted:
 
     _Optional_. A subroutine which will be called
 
-    - between the first call to `is_converged` the start of the first iteration
-    - after each iteration
+    - between the call to `initialize` and the start of the first iteration
+    - at the end of each iteration
 
     It is invoked as
 
@@ -486,19 +488,38 @@ The following options are accepted:
     shape _NxM_, where _N_ is the number of dimensions in the data and
     _M_ is the number of data elements.
 
-### Iteration steps
+### Iteration Objects
 
-The steps are:
+Callbacks are provided with [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based objects which contain
+the data for the current iteration.  They should add data to the
+objects underlying hash which records particulars about their specific
+operation,
+
+    $object->{new_element} = $value;
+
+but should not store unnecessary data there, as an iteration object's
+contents are _copied_ when the next iteration is started.  Instead,
+the passed `work` hash should be used to store large data which will
+not be returned to the user.
+
+### Iteration Steps
+
+Before the first iteration:
 
 1. Extract an initial center from `center`.
-2. Call `initialize`.
-3. Call `log`
-4. Call `calc_wmask`
-5. Update summed weight and number of elements if `calc_wmask` sets them to `undef`.
-6. Call `calc_center`
-7. Call `is_converged`
-8. Call `log`
-9. Goto step 4 if not converged and iteration limit has not been reached.
+2. Create a new iteration object.
+3. Call `initialize`.
+4. Call `log`
+
+For each iteration:
+
+1. Creat a new iteration object by **copying** the old one.
+2. Call `calc_wmask`
+3. Update summed weight and number of elements if `calc_wmask` sets them to `undef`.
+4. Call `calc_center`
+5. Call `is_converged`
+6. Call `log`
+7. Goto step 1 if not converged and iteration limit has not been reached.
 
 # TYPES
 
