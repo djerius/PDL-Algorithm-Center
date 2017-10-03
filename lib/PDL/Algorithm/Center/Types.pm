@@ -41,7 +41,7 @@ Piddle_ne->coercion->add_type_coercions
    );
 
 declare Piddle0D_ne,
-  as Piddle0D[ null => 0, empty => 0 ];
+  as Piddle0D[ null => 0 ];
 
 declare Piddle1D_ne,
   as Piddle1D[ null => 0, empty => 0 ];
