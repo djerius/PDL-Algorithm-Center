@@ -83,11 +83,40 @@ sub _weighted_mean_center {
       / $weight;
 }
 
+sub _distance {
+
+    my ( $last, $current ) = @_;
+
+    return sqrt( ( ( $last->center - $current->center )**2 )->dsum );
+}
+
+sub _sigma_clip_initialize {
+
+    my ( $init_clip, $dtol, $coords, $wmask, $current, $work ) = @_;
+
+    $current->{clip} = $init_clip;
+
+    my $r2 = $work->{r2} = PDL->null;
+    $r2 .= ( ( $coords - $current->center )**2 )->dsumover;
+
+
+    if ( defined $init_clip ) {
+        $wmask = $wmask->copy;
+        $wmask *= $r2 <= $init_clip**2;
+    }
+
+    $current->weight( $wmask->dsum );
+    $current->nelem( ( $wmask > 0 )->dsum );
+    $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->weight );
+
+    return;
+}
+
 sub _sigma_clip_wmask {
 
     my ( $nsigma, $coords, $wmask, $iter, $work ) = @_;
 
-    my $r2 = ( $work->{r2} //= PDL->null );
+    my $r2 = $work->{r2};
     $r2 .= ( ( $coords - $iter->center )**2 )->dsumover;
 
     $iter->clip( $nsigma * $iter->sigma );
@@ -102,35 +131,9 @@ sub _sigma_clip_wmask {
 }
 
 
-sub _distance {
-
-    my ( $last, $current ) = @_;
-
-    return sqrt( ( ( $last->center - $current->center )**2 )->dsum );
-}
-
 sub _sigma_clip_is_converged {
 
     my ( $init_clip, $dtol, $coords, $wmask, $last, $current, $work ) = @_;
-
-    if ( ! defined $last ) {
-
-        $current->{clip} = $init_clip;
-
-        my $r2 = ( $work->{r2} //= PDL->null );
-        $r2 .= ( ( $coords - $current->center )**2 )->dsumover;
-
-
-        if ( defined $init_clip ) {
-            $wmask = $wmask->copy;
-            $wmask *= $r2 <= $init_clip**2;
-        }
-        $current->weight( $wmask->dsum );
-        $current->nelem( ( $wmask > 0 )->dsum );
-        $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->weight );
-
-        return;
-    }
 
     $current->{dist} = undef;
 
@@ -543,7 +546,11 @@ sub sigma_clip {
     };
 
     my ( $clip, $dtol ) = delete @{$opt}{ 'clip', 'dtol' };
-    $opt->{is_converged} //= sub {
+    $opt->{initialize} = sub {
+        _sigma_clip_initialize( $clip, $dtol, @_ );
+    };
+
+    $opt->{is_converged} = sub {
         _sigma_clip_is_converged( $clip, $dtol, @_ );
     };
 
@@ -554,9 +561,10 @@ sub sigma_clip {
 sub iterate {
 
     state $check = compile_named(
+        center       => Center | CodeRef,
+        initialize   => CodeRef,
         calc_center  => CodeRef,
         calc_wmask   => CodeRef,
-        center       => Center | CodeRef,
         is_converged => CodeRef,
         coords       => Coords,
         iterlim      => PositiveInt,
@@ -628,7 +636,7 @@ sub iterate {
           nelem => $wmask_base_nelem,
       } );
 
-    $opt->is_converged->( $opt->coords, $wmask, undef, $iteration[-1], $work );
+    $opt->initialize->( $opt->coords, $wmask, $iteration[-1], $work );
 
     $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
 
