@@ -459,8 +459,8 @@ use Hash::Wrap {
     },
   },
   {
-    -as     => 'return_iterate',
-    -class  => 'PDL::Algorithm::Center::Iterate',
+    -as     => 'return_iterate_results',
+    -class  => 'PDL::Algorithm::Center::Iterate::Results',
     -create => 1,
   };
 
@@ -677,7 +677,7 @@ sub iterate {
         msg => "iteration limit (@{[ $opt->iterlim ]}) reached" )
       if $iteration > $opt->iterlim;
 
-    return_iterate( {
+    return_iterate_results( {
         %{ $iteration[-1] },
         iterations => \@iteration,
         success    => !$error,
