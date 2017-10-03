@@ -22,7 +22,7 @@ use Types::Standard -types;
 use Types::Common::Numeric -types;
 use Type::Params qw[ compile_named ];
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use PDL::Lite ();
 
