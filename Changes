@@ -2,6 +2,13 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.02      2017-10-02 16:04:38-04:00 America/New_York
+
+  [ENHANCEMENT]
+
+    * major internal revision. API should not have changed
+
+
 0.01 2016-09-23T10:04:37-0400
 
      Forked from non-public CXC-PDL-Algorithm-Center
