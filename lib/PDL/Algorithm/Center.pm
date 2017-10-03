@@ -470,7 +470,6 @@ sub sigma_clip {
     state $check = compile_named(
         center    => Optional [ Center | CodeRef ],
         clip      => Optional [PositiveNum],
-        converged => Optional [CodeRef],
         coords    => Optional [Coords],
         dtol      => PositiveNum,
         iterlim   => Optional [PositiveInt],
