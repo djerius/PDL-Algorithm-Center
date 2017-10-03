@@ -520,10 +520,12 @@ sub sigma_clip {
 
         $opt->{coords} = $opt->weight->ndcoords( PDL::indx );
 
-        parameter_error( "mask must have same shape as weight\n" )
-          if defined $opt->{mask}
-          && $opt->mask->shape != $opt->weight->shape;
+        if ( defined $opt->{mask} ) {
+            parameter_error( "mask must have same shape as weight\n" )
+              if  $opt->mask->shape != $opt->weight->shape;
 
+            $opt->mask( $opt->mask->flat );
+        }
 
         $opt->weight( $opt->weight->flat );
     }
@@ -582,31 +584,23 @@ sub iterate {
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 
-    # mask for inclusion of data elements
-    #
-    # * Use the non-zero elements in the product of the inputmask and
-    #   weight as a selection mask.
-    # * Make this a double, as it will be multipled by $weight again.
-    # * It will be 1D, to match the coords.
+    parameter_error( "<$_> must have $nelem elements" )
+      for grep { defined $opt->{$_} && $opt->{$_}->nelem != $nelem }
+      qw[ mask weight ];
 
+    # use mask to remove unwanted elements
+    if ( defined $opt->{mask} ) {
 
-    my $wmask_base = do {
+        my $select = $opt->mask != 0;
+        $opt->coords( $opt->coords->mv(-1,0)->whereND( $select )->mv(0,-1)->sever );
 
-        parameter_error( "<$_> must have $nelem elements" )
-          for grep { defined $opt->{$_} && $opt->{$_}->nelem != $nelem }
-          qw[ mask weight ];
+        ( $ndims, $nelem ) = $opt->coords->dims;
 
-        # weighted mask. not a boolean mask
-        my $wmask
-          = defined $opt->{weight} && defined $opt->{mask}
-          ? $opt->weight * $opt->mask
-          : $opt->{weight} // $opt->{mask};
+        $opt->weight( $opt->weight->where( $select )->sever )
+          if defined $opt->{weight};
+    }
 
-        defined $wmask
-          ? PDL::convert( $wmask, PDL::double )
-          : PDL->ones( PDL::double, $opt->coords->getdim( -1 ) );
-    };
-
+    my $wmask_base = defined $opt->{weight} ? PDL::convert( $opt->weight, PDL::double ) : PDL->ones( PDL::double, $opt->coords->getdim( -1 ) );
     my $wmask_base_weight = $wmask_base->dsum;
     my $wmask_base_nelem  = ( $wmask_base > 0 )->dsum;
 
