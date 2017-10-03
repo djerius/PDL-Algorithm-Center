@@ -141,7 +141,10 @@ sub _sigma_clip_is_converged {
 
     if ( $current->sigma == $last->sigma
          && PDL::all( $current->center == $last->center) ) {
-        $current->dist( _distance( $last, $current ) );
+
+        $current->dist( _distance( $last, $current ) )
+          if defined $dtol;
+
         return 1;
     }
 
