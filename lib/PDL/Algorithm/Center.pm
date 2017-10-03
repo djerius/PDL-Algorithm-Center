@@ -477,7 +477,6 @@ sub sigma_clip {
         log       => Optional [CodeRef],
         mask      => Optional [Piddle_min1D_ne],
         nsigma    => PositiveNum,
-        transform => Optional [ InstanceOf ['PDL::Transform'] ],
         weight    => Optional [Piddle_min1D_ne],
     );
 
@@ -535,7 +534,6 @@ sub sigma_clip {
         parameter_error( "must specify one of <coords> or <weight>" );
     }
 
-    $opt->coords( $opt->transform->apply( $opt->coords ) ) if $opt->{transform};
 
     $opt->{center} //= \&_weighted_mean_center;
     my $nsigma = delete $opt->{nsigma};
