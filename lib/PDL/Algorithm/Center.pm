@@ -133,7 +133,7 @@ sub _sigma_clip_wmask {
 
 sub _sigma_clip_is_converged {
 
-    my ( $init_clip, $dtol, $coords, $wmask, $last, $current, $work ) = @_;
+    my ( $init_clip, $dtol, $coords, $wmask, $last, $current ) = @_;
 
     $current->{dist} = undef;
 
@@ -474,7 +474,7 @@ sub sigma_clip {
     };
 
     $opt->{calc_center} //= sub {
-        my ( $coords, $wmask, $iter, $work ) = @_;
+        my ( $coords, $wmask, $iter ) = @_;
 
         _weighted_mean_center( $coords, $wmask, $iter->weight );
     };
