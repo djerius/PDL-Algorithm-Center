@@ -30,7 +30,7 @@ my %WriteMakefileArgs = (
     "Scalar::Util" => 0,
     "Type::Library" => 0,
     "Type::Params" => 0,
-    "Type::Tiny" => 0,
+    "Type::Tiny" => "1.002001",
     "Type::Utils" => 0,
     "Types::Common::Numeric" => 0,
     "Types::PDL" => 0,
@@ -57,7 +57,7 @@ my %WriteMakefileArgs = (
     "Test::Fatal" => 0,
     "Test::More" => 0
   },
-  "VERSION" => "0.02",
+  "VERSION" => "0.03",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -91,7 +91,7 @@ my %FallbackPrereqs = (
   "Test::More" => 0,
   "Type::Library" => 0,
   "Type::Params" => 0,
-  "Type::Tiny" => 0,
+  "Type::Tiny" => "1.002001",
   "Type::Utils" => 0,
   "Types::Common::Numeric" => 0,
   "Types::PDL" => 0,
