@@ -2,6 +2,18 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.03      2017-10-04 16:42:45-04:00 America/New_York
+
+  [BUILD]
+
+    * added version number to Type::Tiny requirement for
+      compile_named()
+
+  [INTERNALS]
+
+    * reorganized exception class
+
+
 0.02      2017-10-02 16:04:38-04:00 America/New_York
 
   [ENHANCEMENT]
