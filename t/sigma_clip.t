@@ -18,7 +18,7 @@ use Data::Dump 'pp';
 use Hash::Wrap;
 
 sub eclass ($) {
-    return join( '::', 'PDL::Algorithm::Center', @_ );
+    return join( '::', 'PDL::Algorithm::Center::Failure', @_ );
 }
 
 # log iterations for debugging poiposes

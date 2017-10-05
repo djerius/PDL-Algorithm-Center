@@ -8,6 +8,9 @@ use warnings;
 require 5.010000;
 
 use feature 'state';
+
+our $VERSION = '0.03';
+
 use Carp;
 
 use Safe::Isa;
@@ -17,61 +20,19 @@ use custom::failures;
 use Package::Stash;
 use Hash::Wrap;
 
+use PDL::Algorithm::Center::Failure;
+
 use PDL::Algorithm::Center::Types -all;
 use Types::Standard -types;
 use Types::Common::Numeric -types;
 use Type::Params qw[ compile_named ];
 
-our $VERSION = '0.03';
 
 use PDL::Lite ();
 
 use Exporter 'import';
 
 our @EXPORT_OK = qw[ sigma_clip iterate ];
-
-
-my @failures;
-
-BEGIN {
-
-    my @failures = qw<
-      parameter
-      iteration::limit_reached
-      iteration::empty
-    >;
-
-    custom::failures->import( __PACKAGE__, @failures );
-
-    my $stash = Package::Stash->new( __PACKAGE__ );
-
-    for my $failure ( @failures ) {
-
-        ( my $name = $failure ) =~ s/::/_/g;
-        $stash->add_symbol( "&${name}_error",
-            sub (@) { ( __PACKAGE__ . "::$failure" )->throw( @_ ) } );
-        $stash->add_symbol( "&${name}",
-            sub (@) { ( __PACKAGE__ . "::$failure" )->new( @_ ) } );
-    }
-}
-
-sub _error {
-
-    my ( $type, $msg );
-
-    if ( is_arrayref( $_[0] ) ) {
-
-        $type = shift @{ $_[0] };
-        $msg  = $_[0];
-    }
-
-    else {
-        $type = shift;
-        $msg  = \@_;
-    }
-
-    ( __PACKAGE__ . "::$type" )->throw( @$msg );
-}
 
 
 sub _weighted_mean_center {
@@ -414,7 +375,7 @@ sub sigma_clip {
     my $opt = do {
         local $@;
         my %opt = eval { %{ $check->( @_ ) } };
-        parameter_error( $@ ) if $@;
+        parameter_failure->throw( $@ ) if $@;
         wrap_hash( \%opt );
     };
 
@@ -432,14 +393,14 @@ sub sigma_clip {
             my $value = $opt->{$name};
             next unless defined $value;
 
-            parameter_error(
+            parameter_failure->throw(
                 "<$name> must be a 1D piddle if <coords> is specified" )
               if $value->ndims != 1;
 
             my $nelem_c = $value->getdim( -1 );
             my $nelem_p = $opt->coords->getdim( -1 );
 
-            parameter_error(
+            parameter_failure->throw(
                 "number of elements in <$name> ($nelem_p) ) must be the same as in <coords> ($nelem_c)"
             ) if $nelem_c != $nelem_p;
         }
@@ -451,7 +412,7 @@ sub sigma_clip {
         $opt->{coords} = $opt->weight->ndcoords( PDL::indx );
 
         if ( defined $opt->{mask} ) {
-            parameter_error( "mask must have same shape as weight\n" )
+            parameter_failure->throw( "mask must have same shape as weight\n" )
               if  $opt->mask->shape != $opt->weight->shape;
 
             $opt->mask( $opt->mask->flat );
@@ -462,7 +423,7 @@ sub sigma_clip {
 
     else {
 
-        parameter_error( "must specify one of <coords> or <weight>" );
+        parameter_failure->throw( "must specify one of <coords> or <weight>" );
     }
 
 
@@ -933,7 +894,7 @@ sub iterate {
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 
-    parameter_error( "<$_> must have $nelem elements" )
+    parameter_failure->throw( "<$_> must have $nelem elements" )
       for grep { defined $opt->{$_} && $opt->{$_}->nelem != $nelem }
       qw[ mask weight ];
 
@@ -956,7 +917,7 @@ sub iterate {
     $opt->center( $opt->center->( $opt->coords, $wmask_base, $wmask_base_weight ) )
       if is_coderef( $opt->center );
 
-    parameter_error( "<center> must be a 1D piddle with $ndims elements" )
+    parameter_failure->throw( "<center> must be a 1D piddle with $ndims elements" )
       unless is_Piddle1D( $opt->center ) && $opt->center->nelem == $ndims;
 
 
@@ -1006,7 +967,7 @@ sub iterate {
             $current->weight( $wmask->dsum ) unless defined $current->weight;
             $current->nelem( ($wmask > 0)->dsum ) unless defined $current->nelem;
 
-            iteration_empty_error( msg => "no elements left after clip" )
+            iteration_empty_failure->throw( msg => "no elements left after clip" )
               if $current->nelem == 0;
 
             $current->center(
@@ -1022,7 +983,7 @@ sub iterate {
     my $error = $@;
 
     $error
-      = iteration_limit_reached(
+      = iteration_limit_reached_failure->new(
         msg => "iteration limit (@{[ $opt->iterlim ]}) reached" )
       if $iteration > $opt->iterlim;
 
