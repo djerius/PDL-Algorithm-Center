@@ -2,7 +2,7 @@ package PDL::Algorithm::Center::Types;
 use latest;
 
 
-# ABSTRACT: Easily create a facet parameterized Type::Tiny type
+# ABSTRACT: Type::Tiny types for PDL::Algorithm::Center
 
 use strict;
 use warnings;
