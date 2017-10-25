@@ -2,6 +2,14 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.04      2017-10-25 14:54:41-04:00 America/New_York
+
+  [ENHANCEMENT]
+
+    * sigma_clip now accepts partial specification of the initial
+      center.
+
+
 0.03      2017-10-04 16:42:45-04:00 America/New_York
 
   [BUILD]
