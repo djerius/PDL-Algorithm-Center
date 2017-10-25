@@ -133,9 +133,9 @@ sub _sigma_clip_is_converged {
     dtol      => PositiveNum,
     iterlim   => Optional [PositiveInt],
     log       => Optional [CodeRef],
-    mask      => Optional [Piddle_min1D_ne],
+    mask      => Optional [Undef | Piddle_min1D_ne],
     nsigma    => PositiveNum,
-    weight    => Optional [Piddle_min1D_ne],
+    weight    => Optional [Undef | Piddle_min1D_ne],
  );
 
 Center a dataset by iteratively excluding data outside of a radius
@@ -367,9 +367,9 @@ sub sigma_clip {
         dtol      => PositiveNum,
         iterlim   => Optional [PositiveInt],
         log       => Optional [CodeRef],
-        mask      => Optional [Piddle_min1D_ne],
+        mask      => Optional [Undef | Piddle_min1D_ne],
         nsigma    => PositiveNum,
-        weight    => Optional [Piddle_min1D_ne],
+        weight    => Optional [Undef | Piddle_min1D_ne],
     );
 
     my $opt = do {
