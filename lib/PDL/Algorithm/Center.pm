@@ -9,7 +9,7 @@ require 5.010000;
 
 use feature 'state';
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use Carp;
 
