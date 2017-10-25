@@ -4,7 +4,7 @@ PDL::Algorithm::Center - Various methods of finding the center of a sample
 
 # VERSION
 
-version 0.03
+version 0.04
 
 # DESCRIPTION
 
@@ -24,9 +24,9 @@ See ["TYPES"](#types) for information on the types used in the subroutine descri
        dtol      => PositiveNum,
        iterlim   => Optional [PositiveInt],
        log       => Optional [CodeRef],
-       mask      => Optional [Piddle_min1D_ne],
+       mask      => Optional [Undef | Piddle_min1D_ne],
        nsigma    => PositiveNum,
-       weight    => Optional [Piddle_min1D_ne],
+       weight    => Optional [Undef | Piddle_min1D_ne],
     );
 
 Center a dataset by iteratively excluding data outside of a radius
@@ -57,28 +57,35 @@ the entire dataset, or from a clipped region about the initial center.
 
 The following options are available:
 
-- `center` => _Piddle1D\_ne | coderef _
+- `center` => _ArrayRef | Piddle1D\_ne | coderef _
 
-    The initial center.  It may either be a piddle with shape _N_, (or
-    something that can be coerced into one, see ["TYPES"](#types)), or it may be
-    a coderef which will return the center as a piddle with shape _N_.
+    The initial center.  It may be
+
+    - An array of length _N_
+
+        The array may contain undefined values for each dimension for which the center should
+        be determined by finding the mean of the values in that dimension.
+
+    - a piddle with shape _N_  (or
+    something that can be coerced into one, see ["TYPES"](#types)),
+    - a coderef which will return the center as a piddle with shape _N_.
     The subroutine is called as
 
-        &$center( $coords, $wmask, $weight );
+            &$center( $coords, $wmask, $weight );
 
-    with
+        with
 
-    - `$coords`
+        - `$coords`
 
-        a piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
+            a piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
 
-    - `$wmask`
+        - `$wmask`
 
-        a piddle of shape _M_ containing weights
+            a piddle of shape _M_ containing weights
 
-    - `$weight`
+        - `$weight`
 
-        a scalar which is the sum of the weights in `$wmask`
+            a scalar which is the sum of the weights in `$wmask`
 
 - `clip` => _positive number_
 
