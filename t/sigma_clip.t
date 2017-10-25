@@ -249,6 +249,7 @@ sub _generate_sample {
     # generate a bunch of coordinates
     $attr{coords} = $rng->ran_bivariate_gaussian( 10, 8, 0.5, $attr{nelem} );
     $attr{initial_center} = pdl( 0.5, 0.5 );
+    $attr{average_center} = $attr{coords}->xchg(0,1)->average->unpdl;
 
     # calculate sigma for those inside of a radius of 10
     $attr{mask} = dsumover( ( $attr{coords} - $attr{initial_center} )**2 ) < 100;
@@ -266,6 +267,296 @@ sub _generate_sample {
     return wrap_hash( \%attr );
 }
 
+# let's try with no clip and no initial center
+subtest 'coords, no clip, no initial center' => sub {
+
+    my $sample = _generate_sample();
+
+    my $results = sigma_clip(
+        coords  => $sample->coords,
+        dtol    => 0.00001,
+        iterlim => 100,
+        nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
+    );
+
+    ok( $results->success, "successful centering" ) or note $results->error;
+
+    # make sure iteration 0 agrees with the above calculations
+    # Test2::V0 can't handle objects which overload &&.
+    my $iter0 = $results->iterations->[0];
+    my @exp_center = @{ $sample->average_center };
+    $iter0->center( $iter0->center->unpdl );
+    $iter0->{center_0} = $iter0->center->[0];
+    $iter0->{center_1} = $iter0->center->[1];
+    is(
+        $iter0,
+        object {
+            call nelem => $sample->nelem;
+            call weight => $sample->nelem;
+            call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
+            call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
+            end();
+        },
+        "iteration 0",
+    );
+
+    # ensure  the last one agrees with previous fiducial runs, to see
+    # if something has broken
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 70;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
+        "iteration -1",
+    );
+    #>>> notidy
+};
+
+# let's try with no clip and no initial center
+subtest 'coords, no clip, initial center = [X,Y]' => sub {
+
+    my $sample = _generate_sample();
+
+    my $results = sigma_clip(
+        coords  => $sample->coords,
+        center  => $sample->initial_center->unpdl,
+        dtol    => 0.00001,
+        iterlim => 100,
+        nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
+    );
+
+    ok( $results->success, "successful centering" ) or note $results->error;
+
+    # make sure iteration 0 agrees with the above calculations
+    # Test2::V0 can't handle objects which overload &&.
+    my $iter0 = $results->iterations->[0];
+    my @exp_center =$sample->initial_center->list;
+    $iter0->center( $iter0->center->unpdl );
+    $iter0->{center_0} = $iter0->center->[0];
+    $iter0->{center_1} = $iter0->center->[1];
+    is(
+        $iter0,
+        object {
+            call nelem => $sample->nelem;
+            call weight => $sample->nelem;
+            call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
+            call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
+            end();
+        },
+        "iteration 0",
+    );
+
+    # ensure  the last one agrees with previous fiducial runs, to see
+    # if something has broken
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 70;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
+        "iteration -1",
+    );
+    #>>> notidy
+};
+
+subtest 'coords, no clip, initial center = [ X, undef]' => sub {
+
+    my $sample = _generate_sample();
+
+    my $results = sigma_clip(
+        center => [ $sample->initial_center->at(0), undef ],
+        coords  => $sample->coords,
+        dtol    => 0.00001,
+        iterlim => 100,
+        nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
+    );
+
+    ok( $results->success, "successful centering" ) or note $results->error;
+
+    # make sure iteration 0 agrees with the above calculations
+    # Test2::V0 can't handle objects which overload &&.
+    my $iter0 = $results->iterations->[0];
+    my @exp_center =( $sample->initial_center->at(0), $sample->average_center->[1] );
+    $iter0->center( $iter0->center->unpdl );
+    $iter0->{center_0} = $iter0->center->[0];
+    $iter0->{center_1} = $iter0->center->[1];
+    is(
+        $iter0,
+        object {
+            call nelem => $sample->nelem;
+            call weight => $sample->nelem;
+            call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
+            call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
+            end();
+        },
+        "iteration 0",
+    );
+
+    # ensure  the last one agrees with previous fiducial runs, to see
+    # if something has broken
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 70;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
+        "iteration -1",
+    );
+    #>>> notidy
+};
+
+subtest 'coords, no clip, initial center => [undef,Y]' => sub {
+
+    my $sample = _generate_sample();
+
+    my $results = sigma_clip(
+        center => [ undef, $sample->initial_center->at(1) ],
+        coords  => $sample->coords,
+        dtol    => 0.00001,
+        iterlim => 100,
+        nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
+    );
+
+    ok( $results->success, "successful centering" ) or note $results->error;
+
+    # make sure iteration 0 agrees with the above calculations
+    # Test2::V0 can't handle objects which overload &&.
+    my $iter0 = $results->iterations->[0];
+    my @exp_center =( $sample->average_center->[0], $sample->initial_center->at(1) );
+    $iter0->center( $iter0->center->unpdl );
+    $iter0->{center_0} = $iter0->center->[0];
+    $iter0->{center_1} = $iter0->center->[1];
+    is(
+        $iter0,
+        object {
+            call nelem => $sample->nelem;
+            call weight => $sample->nelem;
+            call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
+            call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
+            end();
+        },
+        "iteration 0",
+    );
+
+    # ensure  the last one agrees with previous fiducial runs, to see
+    # if something has broken
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 70;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
+        "iteration -1",
+    );
+    #>>> notidy
+};
+
+subtest 'coords, no clip, initial center => [undef, undef]' => sub {
+
+    my $sample = _generate_sample();
+
+    my $results = sigma_clip(
+        center => [ undef, undef ],
+        coords  => $sample->coords,
+        dtol    => 0.00001,
+        iterlim => 100,
+        nsigma  => 1.5,
+        # log => sub { require DDP; $_[0]->center( $_[0]->center->unpdl ); \&DDP::p( $_[0] ) },
+    );
+
+    ok( $results->success, "successful centering" ) or note $results->error;
+
+    # make sure iteration 0 agrees with the above calculations
+    # Test2::V0 can't handle objects which overload &&.
+    my $iter0 = $results->iterations->[0];
+    my @exp_center =@{ $sample->average_center };
+    $iter0->center( $iter0->center->unpdl );
+    $iter0->{center_0} = $iter0->center->[0];
+    $iter0->{center_1} = $iter0->center->[1];
+    is(
+        $iter0,
+        object {
+            call nelem => $sample->nelem;
+            call weight => $sample->nelem;
+            call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
+            call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
+            end();
+        },
+        "iteration 0",
+    );
+
+    # ensure  the last one agrees with previous fiducial runs, to see
+    # if something has broken
+
+    # Test2::V0 can't handle objects which overload &&.
+    $results->center( $results->center->unpdl );
+    $results->{center_0} = $results->center->[0];
+    $results->{center_1} = $results->center->[1];
+    #<<< notidy
+    is(
+        $results,
+        object {
+            call iter => 70;
+            call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
+            call nelem => 43597;
+            call weight => 43597;
+            call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
+            call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
+            end(),
+        },
+        "iteration -1",
+    );
+    #>>> notidy
+};
 
 # let's try clipping!
 subtest 'coords + clip results' => sub {
@@ -394,7 +685,6 @@ subtest 'coords + clip + weight results' => sub {
         weight  => $weight,
     );
 
-    # make sure iteration 0 agrees with the above calculations
     # make sure iteration 0 agrees with the above calculations
     is(
        $results->{iterations}[0],

@@ -183,10 +183,26 @@ The following options are available:
 
 =over
 
-=item C<center> => I<Piddle1D_ne | coderef >
+=item C<center> => I<ArrayRef | Piddle1D_ne | coderef >
 
-The initial center.  It may either be a piddle with shape I<N>, (or
-something that can be coerced into one, see L</TYPES>), or it may be
+The initial center.  It may be
+
+=over
+
+=item *
+
+An array of length I<N>
+
+The array may contain undefined values for each dimension for which the center should
+be determined by finding the mean of the values in that dimension.
+
+=item *
+
+a piddle with shape I<N>  (or
+something that can be coerced into one, see L</TYPES>),
+
+=item *
+
 a coderef which will return the center as a piddle with shape I<N>.
 The subroutine is called as
 
@@ -207,6 +223,8 @@ a piddle of shape I<M> containing weights
 =item C<$weight>
 
 a scalar which is the sum of the weights in C<$wmask>
+
+=back
 
 =back
 
@@ -361,7 +379,7 @@ use Hash::Wrap {
 sub sigma_clip {
 
     state $check = compile_named(
-        center    => Optional [ Center | CodeRef ],
+        center    => Optional [ ArrayRef[Num|Undef] | Center | CodeRef ],
         clip      => Optional [PositiveNum],
         coords    => Optional [Coords],
         dtol      => PositiveNum,
@@ -427,7 +445,38 @@ sub sigma_clip {
     }
 
 
-    $opt->{center} //= \&_weighted_mean_center;
+    my ( $ndims, $nelem ) = $opt->coords->dims;
+
+
+    if ( defined $opt->{center} && is_arrayref( $opt->center) ) {
+
+        my $icenter = pdl( @{ $opt->center } );
+
+        parameter_failure->throw( "<center> must have $ndims elements" )
+          unless  $icenter->nelem == $ndims ;
+
+        my $defined = pdl( map { defined } @{ $opt->center } );
+
+        if ( $defined->not->any ) {
+
+            $icenter = $icenter->where( $defined )->sever;
+
+            $opt->{center} = sub {
+
+                my ( $coords, $wmask, $weight ) = @_;
+                my $center = _weighted_mean_center( $coords, $wmask, $weight );
+                $center->where( $defined) .= $icenter;;
+
+                return $center;
+            };
+        }
+    }
+    else {
+
+        $opt->{center} //= \&_weighted_mean_center;
+    }
+
+
     my $nsigma = delete $opt->{nsigma};
     $opt->{calc_wmask} //= sub {
         _sigma_clip_wmask( $nsigma, @_ );
@@ -448,6 +497,9 @@ sub sigma_clip {
     $opt->{is_converged} = sub {
         _sigma_clip_is_converged( $clip, $dtol, @_ );
     };
+
+    delete @{$opt}{grep { ! defined $opt->{$_} } keys %$opt};
+
 
     iterate( %$opt );
 }
