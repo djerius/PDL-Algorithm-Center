@@ -445,7 +445,7 @@ sub sigma_clip {
     }
 
 
-    my ( $ndims, $nelem ) = $opt->coords->dims;
+    my ( $ndims ) = $opt->coords->dims;
 
 
     if ( defined $opt->{center} && is_arrayref( $opt->center) ) {
