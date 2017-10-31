@@ -990,6 +990,7 @@ sub iterate {
           center => $opt->center,
           weight => $wmask_base_weight,
           nelem => $wmask_base_nelem,
+          iter  => 0,
       } );
 
     $opt->initialize->( $opt->coords, $wmask, $iteration[-1], $work );
