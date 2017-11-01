@@ -558,8 +558,9 @@ a scalar which is the sum of the weights in C<$wmask>
 
 =item C<initialize> => I<coderef>
 
-This subroutine should initialize the passed iteration object
-and work storage.
+This subroutine provides initialization prior to entering the
+iteration loop.  It should initialize the passed iteration object and
+work storage.
 
 It is invoked as:
 
@@ -581,7 +582,7 @@ a piddle of shape I<M> with weights for each element
 
 a reference to a L<Hash::Wrap> based object containing data for the
 current iteration.  C<initialize> may augment the underlying hash with
-its own data (but see L</Iteration Objects>). The following attributes
+its own data (but see L</Workspace>). The following attributes
 are provided by C<iterate>:
 
 =over
@@ -598,9 +599,8 @@ the sum of the weights of the elements
 
 =item C<$work>
 
-a hashref which C<is_converged> may use to store temporary data (e.g. work
-piddles) which will be available to it upon every invocation. It is
-also passed to the L</calc_wmask> and L</calc_center> routines.
+a hashref which  may use to store temporary data (e.g. work
+piddles) which will be available to all of the callback routines.
 
 =back
 
@@ -648,10 +648,8 @@ the sum of the weights of the elements
 
 =item C<$work>
 
-a hashref which C<calc_center> may use to store temporary data
-(e.g. work piddles) which will be available to it upon every
-invocation. It is also passed to the L</calc_wmask> and
-L</is_converged> routines.
+a hashref which  may use to store temporary data (e.g. work
+piddles) which will be available to all of the callback routines.
 
 =back
 
@@ -684,7 +682,7 @@ a reference to a L<Hash::Wrap> based object containing data for the
 current iteration.
 
 C<calc_center> may augment the underlying hash with its own data (but
-see L</Iteration Objects>). The following attributes are provided by
+see L</Workspace>). The following attributes are provided by
 C<iterate>:
 
 =over
@@ -703,10 +701,8 @@ C<$wmask>, this must either be updated or set to the undefined value.
 
 =item C<$work>
 
-a hashref which C<calc_wmask> may use to store temporary data
-(e.g. work piddles) which will be available to it upon every
-invocation. It is also passed to the L</calc_center> and
-L</is_converged> routines.
+a hashref which  may use to store temporary data (e.g. work
+piddles) which will be available to all of the callback routines.
 
 =back
 
@@ -735,7 +731,7 @@ a piddle of shape I<M> with weights for each element
 
 a reference to a L<Hash::Wrap> based object containing data for the
 previous iteration.  C<is_converged> may augment the underlying hash
-with its own data (but see L</Iteration Objects>). The following
+with its own data (but see L</Workspace>). The following
 attributes are provided by C<iterate>:
 
 =over
@@ -752,15 +748,13 @@ the sum of the weights of the elements
 
 =item C<$current>
 
-a reference to a L<Hash::Wrap> based object
-containing data for the current iteration, with attributes as
-described above for C<$last>
+a reference to a L<Hash::Wrap> based object containing data for the
+current iteration, with attributes as described above for C<$last>
 
 =item C<$work>
 
-a hashref which C<is_converged> may use to store temporary data (e.g. work
-piddles) which will be available to it upon every invocation. It is
-also passed to the L</calc_wmask> and L</calc_center> routines.
+a hashref which  may use to store temporary data (e.g. work
+piddles) which will be available to all of the callback routines.
 
 =back
 
@@ -851,19 +845,77 @@ I<M> is the number of data elements.
 
 =back
 
-=head3 Iteration Objects
-
 Callbacks are provided with L<Hash::Wrap> based objects which contain
 the data for the current iteration.  They should add data to the
 objects underlying hash which records particulars about their specific
 operation,
 
-  $object->{new_element} = $value;
+=head3 Workspace
 
-but should not store unnecessary data there, as an iteration object's
-contents are I<copied> when the next iteration is started.  Instead,
-the passed C<work> hash should be used to store large data which will
-not be returned to the user.
+Callbacks are passed L<Hash::Wrap> based iteration objects and a
+reference to a C<$work> hash.  The iteration objects may have additional
+elements added to them (which will be available to the caller),
+but should refrain from storing unnecessary data there, as each
+new iteration's object is I<copied> from that for the previous iteration.
+
+Instead, use the passed C<$work> hash.  It is shared amongst the
+callbacks, so use it to store data which will not be returned to
+the caller.
+
+=head3 Results
+
+B<iterate> returns an object which includes all of the attributes
+from the final iteration object (See L</Iteration Object> ), with
+the following additional attributes/methods:
+
+=over
+
+=item C<iterations> => I<arrayref>
+
+An array of result objects for each iteration.
+
+=item C<success> => I<boolean>
+
+True if the iteration converged, false otherwise.
+
+=item C<error> => I<error object>
+
+If convergence has failed, this will contain an error object
+describing the failure.  See L</Errors>.
+
+=back
+
+The value of the C<center> attribute in the last iteration will be
+undefined if all of the elements have been clipped.
+
+=head4 Iteration Object
+
+The results for each iteration are stored in an object with the
+following attributes/methods (in addition to those added by the
+callbacks).
+
+=over
+
+=item C<center> => I<piddle|undef>
+
+A 1D piddle containing the derived center.  The value for the last
+iteration will be undefined if all of the elements have been clipped.
+
+=item C<iter> => I<integer>
+
+The iteration index.  An index of C<0> indicates the values determined
+before the iterative loop was entered, and reflects the initial
+clipping and mask exclusion.
+
+=item C<nelem> => I<integer>
+
+The number of data elements used in the center.
+
+=item C<weight> => I<number>
+
+The combined weight of the data elements used to determine the center.
+
+=back
 
 =head3 Iteration Steps
 

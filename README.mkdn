@@ -246,8 +246,9 @@ The following options are accepted:
 
 - `initialize` => _coderef_
 
-    This subroutine should initialize the passed iteration object
-    and work storage.
+    This subroutine provides initialization prior to entering the
+    iteration loop.  It should initialize the passed iteration object and
+    work storage.
 
     It is invoked as:
 
@@ -267,7 +268,7 @@ The following options are accepted:
 
         a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
         current iteration.  `initialize` may augment the underlying hash with
-        its own data (but see ["Iteration Objects"](#iteration-objects)). The following attributes
+        its own data (but see ["Workspace"](#workspace)). The following attributes
         are provided by `iterate`:
 
         - `nelem`
@@ -280,9 +281,8 @@ The following options are accepted:
 
     - `$work`
 
-        a hashref which `is_converged` may use to store temporary data (e.g. work
-        piddles) which will be available to it upon every invocation. It is
-        also passed to the ["calc\_wmask"](#calc_wmask) and ["calc\_center"](#calc_center) routines.
+        a hashref which  may use to store temporary data (e.g. work
+        piddles) which will be available to all of the callback routines.
 
 - `calc_center` => _coderef_
 
@@ -322,10 +322,8 @@ The following options are accepted:
 
     - `$work`
 
-        a hashref which `calc_center` may use to store temporary data
-        (e.g. work piddles) which will be available to it upon every
-        invocation. It is also passed to the ["calc\_wmask"](#calc_wmask) and
-        ["is\_converged"](#is_converged) routines.
+        a hashref which  may use to store temporary data (e.g. work
+        piddles) which will be available to all of the callback routines.
 
 - `calc_wmask` => _coderef_
 
@@ -354,7 +352,7 @@ The following options are accepted:
         current iteration.
 
         `calc_center` may augment the underlying hash with its own data (but
-        see ["Iteration Objects"](#iteration-objects)). The following attributes are provided by
+        see ["Workspace"](#workspace)). The following attributes are provided by
         `iterate`:
 
         - `nelem`
@@ -369,10 +367,8 @@ The following options are accepted:
 
     - `$work`
 
-        a hashref which `calc_wmask` may use to store temporary data
-        (e.g. work piddles) which will be available to it upon every
-        invocation. It is also passed to the ["calc\_center"](#calc_center) and
-        ["is\_converged"](#is_converged) routines.
+        a hashref which  may use to store temporary data (e.g. work
+        piddles) which will be available to all of the callback routines.
 
 - `is_converged` => _coderef_
 
@@ -397,7 +393,7 @@ The following options are accepted:
 
         a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
         previous iteration.  `is_converged` may augment the underlying hash
-        with its own data (but see ["Iteration Objects"](#iteration-objects)). The following
+        with its own data (but see ["Workspace"](#workspace)). The following
         attributes are provided by `iterate`:
 
         - `nelem`
@@ -410,15 +406,13 @@ The following options are accepted:
 
     - `$current`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object
-        containing data for the current iteration, with attributes as
-        described above for `$last`
+        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        current iteration, with attributes as described above for `$last`
 
     - `$work`
 
-        a hashref which `is_converged` may use to store temporary data (e.g. work
-        piddles) which will be available to it upon every invocation. It is
-        also passed to the ["calc\_wmask"](#calc_wmask) and ["calc\_center"](#calc_center) routines.
+        a hashref which  may use to store temporary data (e.g. work
+        piddles) which will be available to all of the callback routines.
 
     The `is_converged` routine is passed references to the **actual**
     objects used by **sigma\_clip** to keep track of the iterations.  This
@@ -495,19 +489,69 @@ The following options are accepted:
     shape _NxM_, where _N_ is the number of dimensions in the data and
     _M_ is the number of data elements.
 
-### Iteration Objects
-
 Callbacks are provided with [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based objects which contain
 the data for the current iteration.  They should add data to the
 objects underlying hash which records particulars about their specific
 operation,
 
-    $object->{new_element} = $value;
+### Workspace
 
-but should not store unnecessary data there, as an iteration object's
-contents are _copied_ when the next iteration is started.  Instead,
-the passed `work` hash should be used to store large data which will
-not be returned to the user.
+Callbacks are passed [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based iteration objects and a
+reference to a `$work` hash.  The iteration objects may have additional
+elements added to them (which will be available to the caller),
+but should refrain from storing unnecessary data there, as each
+new iteration's object is _copied_ from that for the previous iteration.
+
+Instead, use the passed `$work` hash.  It is shared amongst the
+callbacks, so use it to store data which will not be returned to
+the caller.
+
+### Results
+
+**iterate** returns an object which includes all of the attributes
+from the final iteration object (See ["Iteration Object"](#iteration-object) ), with
+the following additional attributes/methods:
+
+- `iterations` => _arrayref_
+
+    An array of result objects for each iteration.
+
+- `success` => _boolean_
+
+    True if the iteration converged, false otherwise.
+
+- `error` => _error object_
+
+    If convergence has failed, this will contain an error object
+    describing the failure.  See ["Errors"](#errors).
+
+The value of the `center` attribute in the last iteration will be
+undefined if all of the elements have been clipped.
+
+#### Iteration Object
+
+The results for each iteration are stored in an object with the
+following attributes/methods (in addition to those added by the
+callbacks).
+
+- `center` => _piddle|undef_
+
+    A 1D piddle containing the derived center.  The value for the last
+    iteration will be undefined if all of the elements have been clipped.
+
+- `iter` => _integer_
+
+    The iteration index.  An index of `0` indicates the values determined
+    before the iterative loop was entered, and reflects the initial
+    clipping and mask exclusion.
+
+- `nelem` => _integer_
+
+    The number of data elements used in the center.
+
+- `weight` => _number_
+
+    The combined weight of the data elements used to determine the center.
 
 ### Iteration Steps
 
