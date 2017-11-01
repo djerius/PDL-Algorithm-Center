@@ -40,8 +40,7 @@ sub _weighted_mean_center {
 
     $weight //= $wmask->dsum;
 
-    return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover
-      / $weight;
+    return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover / $weight;
 }
 
 sub _distance {
@@ -101,7 +100,8 @@ sub _sigma_clip_is_converged {
     # stop if standard deviations and centers haven't changed
 
     if ( $current->sigma == $last->sigma
-         && PDL::all( $current->center == $last->center) ) {
+        && PDL::all( $current->center == $last->center ) )
+    {
 
         $current->dist( _distance( $last, $current ) )
           if defined $dtol;
@@ -113,7 +113,7 @@ sub _sigma_clip_is_converged {
     # to new centers is less than the tolerance.
     if ( defined $dtol ) {
         $current->dist( _distance( $last, $current ) );
-        return  1 if $current->dist <= $dtol;
+        return 1 if $current->dist <= $dtol;
     }
 
     return;
@@ -127,16 +127,17 @@ sub _sigma_clip_is_converged {
 =sub sigma_clip
 
   $results = sigma_clip(
-    center    => Optional [ Center | CodeRef ],
-    clip      => Optional [PositiveNum],
-    coords    => Optional [Coords],
-    dtol      => PositiveNum,
-    iterlim   => Optional [PositiveInt],
-    log       => Optional [CodeRef],
-    mask      => Optional [Undef | Piddle_min1D_ne],
-    nsigma    => PositiveNum,
-    weight    => Optional [Undef | Piddle_min1D_ne],
- );
+      center     => Optional [ Center | CodeRef ],
+      clip       => Optional [PositiveNum],
+      coords     => Optional [Coords],
+      dtol       => PositiveNum,
+      iterlim    => Optional [PositiveInt],
+      log        => Optional [Bool | CodeRef],
+      mask       => Optional [ Undef | Piddle_min1D_ne ],
+      save_wmask => Optional [Bool],
+      nsigma     => PositiveNum,
+      weight     => Optional [ Undef | Piddle_min1D_ne ],
+  );
 
 Center a dataset by iteratively excluding data outside of a radius
 equal to a specified number of standard deviations. The dataset may be
@@ -144,6 +145,8 @@ specified as a list of coordinates and optional weights, or as a
 weight piddle of shape I<NxM> (e.g., an image).  If only the weight
 piddle is provided, it is converted internally into a list of
 coordinates with associated weights.
+
+To operate on a subset of the input data, specify the C<mask> option.
 
 The center of a data set is determined by:
 
@@ -270,6 +273,11 @@ where I<M> is the number of data elements in C<coords>.
 If C<coords> is not specified, C<mask> should have the same shape as
 C<weight>.
 
+=item C<save_wmask> => I<boolean>
+
+If true, the weighed mask used in the final iteration will be returned
+in the iteration result object.
+
 =item C<nsigma> => I<scalar>
 
 The size of the clipping radius, in units of the standard deviation.
@@ -304,6 +312,11 @@ True if the iteration converged, false otherwise.
 
 If convergence has failed, this will contain an error object
 describing the failure.  See L</Errors>.
+
+=item C<wmask> => I<piddle>
+
+If the C<$save_wmask> option is true, this will be the
+weighted mask used to weight the data elements in the final iteration.
 
 =back
 
@@ -379,15 +392,16 @@ use Hash::Wrap {
 sub sigma_clip {
 
     state $check = compile_named(
-        center    => Optional [ ArrayRef[Num|Undef] | Center | CodeRef ],
-        clip      => Optional [PositiveNum],
-        coords    => Optional [Coords],
-        dtol      => PositiveNum,
-        iterlim   => Optional [PositiveInt],
-        log       => Optional [CodeRef],
-        mask      => Optional [Undef | Piddle_min1D_ne],
-        nsigma    => PositiveNum,
-        weight    => Optional [Undef | Piddle_min1D_ne],
+        center     => Optional [ ArrayRef [ Num | Undef ] | Center | CodeRef ],
+        clip       => Optional [PositiveNum],
+        coords     => Optional [Coords],
+        dtol       => PositiveNum,
+        iterlim    => Optional [PositiveInt],
+        log        => Optional [ Bool | CodeRef ],
+        mask       => Optional [ Undef | Piddle_min1D_ne ],
+        save_wmask => Optional [Bool],
+        nsigma     => PositiveNum,
+        weight     => Optional [ Undef | Piddle_min1D_ne ],
     );
 
     my $opt = do {
@@ -431,7 +445,7 @@ sub sigma_clip {
 
         if ( defined $opt->{mask} ) {
             parameter_failure->throw( "mask must have same shape as weight\n" )
-              if  $opt->mask->shape != $opt->weight->shape;
+              if $opt->mask->shape != $opt->weight->shape;
 
             $opt->mask( $opt->mask->flat );
         }
@@ -448,12 +462,12 @@ sub sigma_clip {
     my ( $ndims ) = $opt->coords->dims;
 
 
-    if ( defined $opt->{center} && is_arrayref( $opt->center) ) {
+    if ( defined $opt->{center} && is_arrayref( $opt->center ) ) {
 
         my $icenter = pdl( @{ $opt->center } );
 
         parameter_failure->throw( "<center> must have $ndims elements" )
-          unless  $icenter->nelem == $ndims ;
+          unless $icenter->nelem == $ndims;
 
         my $defined = pdl( map { defined } @{ $opt->center } );
 
@@ -465,7 +479,7 @@ sub sigma_clip {
 
                 my ( $coords, $wmask, $weight ) = @_;
                 my $center = _weighted_mean_center( $coords, $wmask, $weight );
-                $center->where( $defined) .= $icenter;;
+                $center->where( $defined ) .= $icenter;
 
                 return $center;
             };
@@ -498,7 +512,7 @@ sub sigma_clip {
         _sigma_clip_is_converged( $clip, $dtol, @_ );
     };
 
-    delete @{$opt}{grep { ! defined $opt->{$_} } keys %$opt};
+    delete @{$opt}{ grep { !defined $opt->{$_} } keys %$opt };
 
 
     iterate( %$opt );
@@ -517,6 +531,7 @@ sub sigma_clip {
     iterlim      => PositiveInt,
     log          => Optional [CodeRef],
     mask         => Optional [Piddle1D_ne],
+    save_wmask   => Optional [Bool],
     weight       => Optional [Piddle1D_ne],
   );
 
@@ -834,6 +849,10 @@ where I<M> is the number of data elements in C<coords>.
 If C<coords> is not specified, C<mask> should have the same shape as
 C<weight>.
 
+=item C<save_wmask> => I<boolean>
+
+If true, the weighted mask used in the final iteration will be
+returned in the iteration result object.
 
 =item C<weight> => I<piddle>
 
@@ -882,6 +901,11 @@ True if the iteration converged, false otherwise.
 
 If convergence has failed, this will contain an error object
 describing the failure.  See L</Errors>.
+
+=item C<wmask> => I<piddle>
+
+If the C<$save_wmask> option is true, this will be the
+weighted mask used to weight the data elements in the final iteration.
 
 =back
 
@@ -990,11 +1014,13 @@ sub iterate {
         log          => Optional [CodeRef],
         mask         => Optional [Piddle1D_ne],
         weight       => Optional [Piddle1D_ne],
+        save_wmask   => Optional [Bool],
     );
 
     my $opt = wrap_hash( $check->( @_ ) );
 
-    $opt->{log} //= undef;
+    $opt->{log}        //= undef;
+    $opt->{save_wmask} //= 0;
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 
@@ -1006,7 +1032,8 @@ sub iterate {
     if ( defined $opt->{mask} ) {
 
         my $select = $opt->mask != 0;
-        $opt->coords( $opt->coords->mv(-1,0)->whereND( $select )->mv(0,-1)->sever );
+        $opt->coords(
+            $opt->coords->mv( -1, 0 )->whereND( $select )->mv( 0, -1 )->sever );
 
         ( $ndims, $nelem ) = $opt->coords->dims;
 
@@ -1014,14 +1041,19 @@ sub iterate {
           if defined $opt->{weight};
     }
 
-    my $wmask_base = defined $opt->{weight} ? PDL::convert( $opt->weight, PDL::double ) : PDL->ones( PDL::double, $opt->coords->getdim( -1 ) );
+    my $wmask_base
+      = defined $opt->{weight}
+      ? PDL::convert( $opt->weight, PDL::double )
+      : PDL->ones( PDL::double, $opt->coords->getdim( -1 ) );
     my $wmask_base_weight = $wmask_base->dsum;
     my $wmask_base_nelem  = ( $wmask_base > 0 )->dsum;
 
-    $opt->center( $opt->center->( $opt->coords, $wmask_base, $wmask_base_weight ) )
+    $opt->center(
+        $opt->center->( $opt->coords, $wmask_base, $wmask_base_weight ) )
       if is_coderef( $opt->center );
 
-    parameter_failure->throw( "<center> must be a 1D piddle with $ndims elements" )
+    parameter_failure->throw(
+        "<center> must be a 1D piddle with $ndims elements" )
       unless is_Piddle1D( $opt->center ) && $opt->center->nelem == $ndims;
 
 
@@ -1041,8 +1073,8 @@ sub iterate {
       new_iteration( {
           center => $opt->center,
           weight => $wmask_base_weight,
-          nelem => $wmask_base_nelem,
-          iter  => 0,
+          nelem  => $wmask_base_nelem,
+          iter   => 0,
       } );
 
     $opt->initialize->( $opt->coords, $wmask, $iteration[-1], $work );
@@ -1054,7 +1086,7 @@ sub iterate {
 
     eval {
 
-        while ( ! $converged && ++$iteration <= $opt->iterlim ) {
+        while ( !$converged && ++$iteration <= $opt->iterlim ) {
 
             my $last = $iteration[-1];
 
@@ -1070,15 +1102,19 @@ sub iterate {
             $opt->calc_wmask->( $opt->coords, $wmask, $current, $work );
 
             $current->weight( $wmask->dsum ) unless defined $current->weight;
-            $current->nelem( ($wmask > 0)->dsum ) unless defined $current->nelem;
+            $current->nelem( ( $wmask > 0 )->dsum )
+              unless defined $current->nelem;
 
-            iteration_empty_failure->throw( msg => "no elements left after clip" )
+            iteration_empty_failure->throw(
+                msg => "no elements left after clip" )
               if $current->nelem == 0;
 
             $current->center(
                 $opt->calc_center->( $opt->coords, $wmask, $current, $work ) );
 
-            $converged = $opt->is_converged->( $opt->coords, $wmask, $last, $current, $work );
+            $converged = $opt->is_converged->(
+                $opt->coords, $wmask, $last, $current, $work
+            );
 
             $opt->log && $opt->log->( new_iteration( $current ) );
         }
@@ -1094,6 +1130,7 @@ sub iterate {
 
     return_iterate_results( {
         %{ $iteration[-1] },
+        ( $opt->save_wmask ? ( wmask => $mask ) : () ),
         iterations => \@iteration,
         success    => !$error,
         error      => $error

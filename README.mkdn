@@ -17,16 +17,17 @@ See ["TYPES"](#types) for information on the types used in the subroutine descri
 
 ## sigma\_clip
 
-     $results = sigma_clip(
-       center    => Optional [ Center | CodeRef ],
-       clip      => Optional [PositiveNum],
-       coords    => Optional [Coords],
-       dtol      => PositiveNum,
-       iterlim   => Optional [PositiveInt],
-       log       => Optional [CodeRef],
-       mask      => Optional [Undef | Piddle_min1D_ne],
-       nsigma    => PositiveNum,
-       weight    => Optional [Undef | Piddle_min1D_ne],
+    $results = sigma_clip(
+        center    => Optional [ Center | CodeRef ],
+        clip      => Optional [PositiveNum],
+        coords    => Optional [Coords],
+        dtol      => PositiveNum,
+        iterlim   => Optional [PositiveInt],
+        log       => Optional [CodeRef],
+        mask      => Optional [ Undef | Piddle_min1D_ne ],
+        save_mask => Optional [Bool],
+        nsigma    => PositiveNum,
+        weight    => Optional [ Undef | Piddle_min1D_ne ],
     );
 
 Center a dataset by iteratively excluding data outside of a radius
@@ -129,6 +130,11 @@ The following options are available:
     If `coords` is not specified, `mask` should have the same shape as
     `weight`.
 
+- `save_mask` => _boolean_
+
+    If true, the mask used in the final iteration will be returned
+    in the iteration result object.
+
 - `nsigma` => _scalar_
 
     The size of the clipping radius, in units of the standard deviation.
@@ -159,6 +165,11 @@ the following additional attributes/methods:
 
     If convergence has failed, this will contain an error object
     describing the failure.  See ["Errors"](#errors).
+
+- `mask` => _piddle_
+
+    If the `$save_mask` option is true, this will be the
+    mask used to weight the data elements in the final iteration.
 
 #### Sigma Clip Iterations
 
@@ -211,6 +222,7 @@ following attributes/methods:
       iterlim      => PositiveInt,
       log          => Optional [CodeRef],
       mask         => Optional [Piddle1D_ne],
+      save_mask    => Optional [Bool],
       weight       => Optional [Piddle1D_ne],
     );
 
@@ -481,6 +493,11 @@ The following options are accepted:
     If `coords` is not specified, `mask` should have the same shape as
     `weight`.
 
+- `save_mask` => _boolean_
+
+    If true, the mask used in the final iteration will be returned
+    in the iteration result object.
+
 - `weight` => _piddle_
 
     _Optional_. Data weights.  When used with `coords`, `weight` must
@@ -524,6 +541,11 @@ the following additional attributes/methods:
 
     If convergence has failed, this will contain an error object
     describing the failure.  See ["Errors"](#errors).
+
+- `mask` => _piddle_
+
+    If the `$save_mask` option is true, this will be the
+    mask used to weight the data elements in the final iteration.
 
 The value of the `center` attribute in the last iteration will be
 undefined if all of the elements have been clipped.
