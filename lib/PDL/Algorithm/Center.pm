@@ -120,6 +120,41 @@ sub _sigma_clip_is_converged {
 }
 
 
+sub _sigma_clip_log_iteration {
+
+    my $iter = shift;
+
+    # iter n clip sigma x y
+    # xxxx xxxxxxx xxxxxxxxxx xxxxxxxxxx xxxxxxxxxx xxxxxxxxxx
+
+    my $ncoords = $iter->center->nelem;
+    if ( $iter->iter == 0 ) {
+
+        my $fmt = "%4s %7s" . ' %10s' x ( 3 + $ncoords ) . "\n";
+
+        printf $fmt,
+          @$_
+          for [
+            qw{ iter  nelem    weight      clip      sigma   },
+            map { "q$_" } 1 .. $ncoords
+          ],
+          [
+            qw{ ---- ------- ---------- ---------- ----------},
+            ( "----------" ) x $ncoords
+          ];
+    }
+
+    my @fmt = ( '%4d', '%7d', ( '%10.6g' ) x ( 3 + $ncoords ) );
+    $fmt[3] = '%10s' if !defined $iter->clip;
+
+    printf(
+        join( ' ', @fmt ) . "\n",
+        $iter->iter, $iter->nelem, $iter->weight,
+        $iter->clip // 'undef', $iter->sigma, $iter->center->list
+    );
+}
+
+
 ## no critic (ProhibitAccessOfPrivateData)
 
 =pod
@@ -256,9 +291,14 @@ than the specified distance.
 
 I<Optional>. The maximum number of iterations to run.  Defaults to 10.
 
-=item C<log> => I<coderef>
+=item C<log> => I<boolean|coderef>
 
-I<Optional>. A subroutine which will be called before the first iteration and at
+I<Optional>.
+
+If C<log> is true (and not a I<coderef>), a default logger which outputs
+to B<STDOUT> will be used.
+
+If a I<coderef> it will be called before the first iteration and at
 the end of each iteration. It is passed a copy of the current
 iteration's results object; see L</Sigma Clip Iteration Results>.
 
@@ -412,6 +452,10 @@ sub sigma_clip {
     };
 
     $opt->{iterlim} //= 10;
+
+    if ( defined $opt->{log} && !is_coderef( $opt->log ) ) {
+        $opt->{log} = $opt->log ? \&_sigma_clip_log_iteration : undef;
+    }
 
     #---------------------------------------------------------------
 
