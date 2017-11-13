@@ -676,7 +676,7 @@ A piddle with shape I<M>, essentially a copy of the initial C<$weight> option to
 
 a reference to a L<Hash::Wrap> based object containing data for the
 current iteration.  C<initialize> may augment the underlying hash with
-its own data (but see L</Workspace>). The following attributes
+its own data (but see L</Work Space>). The following attributes
 are provided by C<iterate>:
 
 =over
@@ -788,7 +788,7 @@ A reference to a L<Hash::Wrap> based object containing data for the
 current iteration.
 
 C<calc_center> may augment the underlying hash with its own data (but
-see L</Workspace>). The following attributes are provided by
+see L</Work Space>). The following attributes are provided by
 C<iterate>:
 
 =over
@@ -843,7 +843,7 @@ A piddle with shape I<M> containing the current weights for the included coordin
 
 A reference to a L<Hash::Wrap> based object containing data for the
 previous iteration.  C<is_converged> may augment the underlying hash
-with its own data (but see L</Workspace>). The following
+with its own data (but see L</Work Space>). The following
 attributes are provided by C<iterate>:
 
 =over
@@ -969,7 +969,7 @@ the data for the current iteration.  They should add data to the
 objects underlying hash which records particulars about their specific
 operation,
 
-=head3 Workspace
+=head3 Work Space
 
 Callbacks are passed L<Hash::Wrap> based iteration objects and a
 reference to a C<$work> hash.  The iteration objects may have additional
