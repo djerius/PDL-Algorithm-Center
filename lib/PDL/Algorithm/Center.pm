@@ -70,13 +70,13 @@ sub _sigma_clip_initialize {
 
     my $wmask = $work->{wmask} = $mask * $weight;
 
-    $current->weight( $wmask->dsum );
+    $current->total_weight( $wmask->dsum );
     $current->nelem( $mask->sum );
 
     iteration_initialize_failure->throw( "weight == 0" )
-      if $current->weight == 0;
+      if $current->total_weight == 0;
 
-    $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->weight );
+    $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->total_weight );
 
     return;
 }
@@ -92,16 +92,16 @@ sub _sigma_clip_wmask {
 
     $mask *= $r2 < $iter->clip**2;
 
-    $iter->weight( ( $mask * $weight )->dsum );
+    $iter->total_weight( ( $mask * $weight )->dsum );
     $iter->nelem( $mask->sum );
 
     my $wmask = $work->{wmask};
     $wmask .= $mask * $weight;
 
     iteration_calc_wmask_failure->throw( "weight == 0" )
-      if $iter->weight == 0;
+      if $iter->total_weight == 0;
 
-    $iter->sigma( sqrt( ( $wmask * $r2 )->dsum / $iter->weight ) );
+    $iter->sigma( sqrt( ( $wmask * $r2 )->dsum / $iter->total_weight ) );
 
     return;
 }
@@ -165,7 +165,7 @@ sub _sigma_clip_log_iteration {
 
     printf(
         join( ' ', @fmt ) . "\n",
-        $iter->iter, $iter->nelem, $iter->weight,
+        $iter->iter, $iter->nelem, $iter->total_weight,
         $iter->clip // 'undef', $iter->sigma, $iter->center->list
     );
 }
@@ -178,16 +178,17 @@ sub _sigma_clip_log_iteration {
 =sub sigma_clip
 
   $results = sigma_clip(
-      center     => Optional [ Center | CodeRef ],
-      clip       => Optional [PositiveNum],
-      coords     => Optional [Coords],
-      dtol       => PositiveNum,
-      iterlim    => Optional [PositiveInt],
-      log        => Optional [Bool | CodeRef],
-      mask       => Optional [ Undef | Piddle_min1D_ne ],
-      save_wmask => Optional [Bool],
-      nsigma     => PositiveNum,
-      weight     => Optional [ Undef | Piddle_min1D_ne ],
+      center      => Optional [ Center | CodeRef ],
+      clip        => Optional [PositiveNum],
+      coords      => Optional [Coords],
+      dtol        => PositiveNum,
+      iterlim     => Optional [PositiveInt],
+      log         => Optional [Bool | CodeRef],
+      mask        => Optional [ Undef | Piddle_min1D_ne ],
+      save_mask   => Optional [Bool],
+      save_weight => Optional [Bool],
+      nsigma      => PositiveNum,
+      weight      => Optional [ Undef | Piddle_min1D_ne ],
   );
 
 Center a dataset by iteratively excluding data outside of a radius
@@ -337,9 +338,14 @@ where I<M> is the number of data elements in C<coords>.
 If C<coords> is not specified, C<mask> should have the same shape as
 C<weight>.
 
-=item C<save_wmask> => I<boolean>
+=item C<save_mask> => I<boolean>
 
-If true, the weighed mask used in the final iteration will be returned
+If true, the mask used in the final iteration will be returned
+in the iteration result object.
+
+=item C<save_weight> => I<boolean>
+
+If true, the weights used in the final iteration will be returned
 in the iteration result object.
 
 =item C<nsigma> => I<scalar>
@@ -379,11 +385,15 @@ True if the iteration converged, false otherwise.
 If convergence has failed, this will contain an error object
 describing the failure.  See L</Errors>.
 
-=item C<wmask> => I<piddle>
+=item C<mask> => I<piddle>
 
-If the C<$save_wmask> option is true, this will be the weighted mask
-(i.e. C<$mask * $weight> ) used to weight the data elements in the
-final iteration.
+If the C<$save_mask> option is true, this will be the final
+inclusion mask.
+
+=item C<weight> => I<piddle>
+
+If the C<$save_weight> option is true, this will be the final
+weights.
 
 =back
 
@@ -409,7 +419,7 @@ clipping and mask exclusion.
 
 The number of data elements used in the center.
 
-=item C<weight> => I<number>
+=item C<total_weight> => I<number>
 
 The combined weight of the data elements used to determine the center.
 
@@ -459,16 +469,17 @@ use Hash::Wrap {
 sub sigma_clip {
 
     state $check = compile_named(
-        center     => Optional [ ArrayRef [ Num | Undef ] | Center | CodeRef ],
-        clip       => Optional [PositiveNum],
-        coords     => Optional [Coords],
-        dtol       => PositiveNum,
-        iterlim    => Optional [PositiveInt],
-        log        => Optional [ Bool | CodeRef ],
-        mask       => Optional [ Undef | Piddle_min1D_ne ],
-        save_wmask => Optional [Bool],
-        nsigma     => PositiveNum,
-        weight     => Optional [ Undef | Piddle_min1D_ne ],
+        center      => Optional [ ArrayRef [ Num | Undef ] | Center | CodeRef ],
+        clip        => Optional [PositiveNum],
+        coords      => Optional [Coords],
+        dtol        => PositiveNum,
+        iterlim     => Optional [PositiveInt],
+        log         => Optional [ Bool | CodeRef ],
+        mask        => Optional [ Undef | Piddle_min1D_ne ],
+        save_mask   => Optional [Bool],
+        save_weight => Optional [Bool],
+        nsigma      => PositiveNum,
+        weight      => Optional [ Undef | Piddle_min1D_ne ],
     );
 
     my $opt = do {
@@ -571,7 +582,7 @@ sub sigma_clip {
     $opt->{calc_center} //= sub {
         my ( $coords, $mask, $weight, $iter ) = @_;
 
-        _weighted_mean_center( $coords, $mask, $weight, $iter->weight );
+        _weighted_mean_center( $coords, $mask, $weight, $iter->total_weight );
     };
 
     my ( $clip, $dtol ) = delete @{$opt}{ 'clip', 'dtol' };
@@ -602,7 +613,8 @@ sub sigma_clip {
     iterlim      => PositiveInt,
     log          => Optional [CodeRef],
     mask         => Optional [Piddle1D_ne],
-    save_wmask   => Optional [Bool],
+    save_mask    => Optional [Bool],
+    save_weight  => Optional [Bool],
     weight       => Optional [Piddle1D_ne],
   );
 
@@ -685,7 +697,7 @@ are provided by C<iterate>:
 
 The number of included coordinates, C<$mask->sum>.
 
-=item C<weight>
+=item C<total_weight>
 
 The sum of the weights of the included coordinates, C<< ($mask * $weight)->dsum >>.
 
@@ -738,7 +750,7 @@ C<iterate>:
 
 The number of included coordinates, C<< $mask->sum >>.
 
-=item C<weight>
+=item C<total_weight>
 
 The sum of the weights of the included coordinates, C<< ($mask*$weight)->dsum) >>.
 
@@ -779,7 +791,7 @@ if this is changed.
 
 A piddle with shape I<M>, essentially a flattened copy of the initial
 C<$mask> option to L</iterate>.  Any changes to it will be discarded
-at the end of the iteration.  Be sure to update C<< $current->weight
+at the end of the iteration.  Be sure to update C<< $current->total_weight
 >> if this is changed.
 
 =item C<$current>
@@ -799,7 +811,7 @@ The number of included coordinates, C<< $mask->sum >>.  If
 C<$mask> is changed this must either be updated or set to the
 undefined value.
 
-=item C<weight>
+=item C<total_weight>
 
 The sum of the weights of the included coordinates, C<< ($mask *
 $weight)->dsum >>.  If C<$weight> is changed this must either be
@@ -852,7 +864,7 @@ attributes are provided by C<iterate>:
 
 The number of included coordinates.
 
-=item C<weight>
+=item C<total_weight>
 
 The sum of the weights of the included coordinates.
 
@@ -925,7 +937,7 @@ The iteration index
 
 The number of included coordinates.
 
-=item C<weight>
+=item C<total_weight>
 
 The summed weight of the included coordinates.
 
@@ -947,10 +959,15 @@ where I<M> is the number of data elements in C<coords>.
 If C<coords> is not specified, C<mask> should have the same shape as
 C<weight>.
 
-=item C<save_wmask> => I<boolean>
+=item C<save_mask> => I<boolean>
 
-If true, the weighted mask used in the final iteration will be
-returned in the iteration result object.
+If true, the mask used in the final iteration will be returned
+in the iteration result object.
+
+=item C<save_weight> => I<boolean>
+
+If true, the weights used in the final iteration will be returned
+in the iteration result object.
 
 =item C<weight> => I<piddle>
 
@@ -1002,10 +1019,15 @@ True if the iteration converged, false otherwise.
 If convergence has failed, this will contain an error object
 describing the failure.  See L</Errors>.
 
-=item C<wmask> => I<piddle>
+=item C<mask> => I<piddle>
 
-If the C<$save_wmask> option is true, this will be the
-weighted mask used to weight the data elements in the final iteration (i.e. C<< $mask & $weight >>).
+If the C<$save_mask> option is true, this will be the final
+inclusion mask.
+
+=item C<weight> => I<piddle>
+
+If the C<$save_weight> option is true, this will be the final
+weights.
 
 =back
 
@@ -1035,7 +1057,7 @@ clipping and mask exclusion.
 
 The number of data elements used in the center.
 
-=item C<weight> => I<number>
+=item C<total_weight> => I<number>
 
 The combined weight of the data elements used to determine the center.
 
@@ -1115,33 +1137,23 @@ sub iterate {
         log          => Optional [CodeRef],
         mask         => Optional [Piddle1D_ne],
         weight       => Optional [Piddle1D_ne],
-        save_wmask   => Optional [Bool],
+        save_mask    => Optional [Bool],
+        save_weight  => Optional [Bool],
     );
 
     my $opt = wrap_hash( $check->( @_ ) );
 
-    $opt->{log}        //= undef;
-    $opt->{save_wmask} //= 0;
-    $opt->{mask}       //= undef;
-    $opt->{weight}     //= undef;
+    $opt->{log}         //= undef;
+    $opt->{save_mask}   //= 0;
+    $opt->{save_weight} //= 0;
+    $opt->{mask}        //= undef;
+    $opt->{weight}      //= undef;
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 
     parameter_failure->throw( "<$_> must have $nelem elements" )
       for grep { defined $opt->{$_} && $opt->{$_}->nelem != $nelem }
       qw[ mask weight ];
-
-    # if ( defined $opt->mask ) {
-
-  #     my $select = $opt->mask != 0;
-  #     $opt->coords(
-  #         $opt->coords->mv( -1, 0 )->whereND( $select )->mv( 0, -1 )->sever );
-
-    #     ( $ndims, $nelem ) = $opt->coords->dims;
-
-    #     $opt->weight( $opt->weight->where( $select )->sever )
-    #       if defined $opt->{weight};
-    # }
 
     $opt->weight(
         defined $opt->weight
@@ -1186,10 +1198,10 @@ sub iterate {
 
     push @iteration,
       new_iteration( {
-          center => $opt->center,
-          weight => $total_weight,
-          nelem  => $nelem,
-          iter   => 0,
+          center       => $opt->center,
+          total_weight => $total_weight,
+          nelem        => $nelem,
+          iter         => 0,
       } );
 
     $mask   .= $opt->mask;
@@ -1213,7 +1225,7 @@ sub iterate {
 
             ++$current->{iter};
 
-            $current->weight( $total_weight );
+            $current->total_weight( $total_weight );
             $current->nelem( $nelem );
 
             $mask   .= $opt->mask;
@@ -1221,7 +1233,7 @@ sub iterate {
 
             $opt->calc_wmask->( $opt->coords, $mask, $weight, $current, $work );
 
-            $current->weight( ( $mask * $weight ) ->dsum ) unless defined $current->weight;
+            $current->total_weight( ( $mask * $weight ) ->dsum ) unless defined $current->total_weight;
             $current->nelem( $mask->sum )
               unless defined $current->nelem;
 
@@ -1249,7 +1261,8 @@ sub iterate {
 
     return_iterate_results( {
         %{ $iteration[-1] },
-        ( $opt->save_wmask ? ( wmask => $mask ) : () ),
+        ( $opt->save_mask ? ( mask => $mask ) : () ),
+        ( $opt->save_weight ? ( weight => $weight ) : () ),
         iterations => \@iteration,
         success    => !$error,
         error      => $error

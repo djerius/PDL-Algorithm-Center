@@ -293,7 +293,7 @@ subtest 'coords, no clip, no initial center' => sub {
         $iter0,
         object {
             call nelem => $sample->nelem;
-            call weight => $sample->nelem;
+            call total_weight => $sample->nelem;
             call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
             call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
             end();
@@ -315,7 +315,7 @@ subtest 'coords, no clip, no initial center' => sub {
             call iter => 70;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -352,7 +352,7 @@ subtest 'coords, no clip, initial center = [X,Y]' => sub {
         $iter0,
         object {
             call nelem => $sample->nelem;
-            call weight => $sample->nelem;
+            call total_weight => $sample->nelem;
             call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
             call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
             end();
@@ -374,7 +374,7 @@ subtest 'coords, no clip, initial center = [X,Y]' => sub {
             call iter => 70;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -410,7 +410,7 @@ subtest 'coords, no clip, initial center = [ X, undef]' => sub {
         $iter0,
         object {
             call nelem => $sample->nelem;
-            call weight => $sample->nelem;
+            call total_weight => $sample->nelem;
             call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
             call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
             end();
@@ -432,7 +432,7 @@ subtest 'coords, no clip, initial center = [ X, undef]' => sub {
             call iter => 70;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -468,7 +468,7 @@ subtest 'coords, no clip, initial center => [undef,Y]' => sub {
         $iter0,
         object {
             call nelem => $sample->nelem;
-            call weight => $sample->nelem;
+            call total_weight => $sample->nelem;
             call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
             call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
             end();
@@ -490,7 +490,7 @@ subtest 'coords, no clip, initial center => [undef,Y]' => sub {
             call iter => 70;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -526,7 +526,7 @@ subtest 'coords, no clip, initial center => [undef, undef]' => sub {
         $iter0,
         object {
             call nelem => $sample->nelem;
-            call weight => $sample->nelem;
+            call total_weight => $sample->nelem;
             call center_0 => validator( '==', $exp_center[0] => sub { $_ ==  $exp_center[0] } );
             call center_1 => validator( '==', $exp_center[1] => sub { $_ ==  $exp_center[1] } );
             end();
@@ -548,7 +548,7 @@ subtest 'coords, no clip, initial center => [undef, undef]' => sub {
             call iter => 70;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -581,7 +581,7 @@ subtest 'coords + clip results' => sub {
         object {
             call sigma => validator( '==', $sample->sigma, sub { $_ == $sample->sigma } );
             call nelem => $sample->ninside;
-            call weight => $sample->ninside;
+            call total_weight => $sample->ninside;
             end();
         },
         "iteration 0",
@@ -601,7 +601,7 @@ subtest 'coords + clip results' => sub {
             call iter => 56;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -636,7 +636,7 @@ subtest 'coords + mask results' => sub {
        object {
            call sigma  => validator( '==', $sample->sigma, sub { $_ == $sample->sigma } );
            call nelem => $sample->ninside;
-           call weight => $sample->ninside;
+           call total_weight => $sample->ninside;
        },
        "iteration 0",
       );
@@ -652,7 +652,7 @@ subtest 'coords + mask results' => sub {
             call iter => 56;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597;
+            call total_weight => 43597;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
@@ -691,7 +691,7 @@ subtest 'coords + clip + weight results' => sub {
        object {
            call sigma  => validator( '==', $sample->sigma, sub { $_ == $sample->sigma } );
            call nelem => $sample->ninside;
-           call weight => $inside_weight_sum;
+           call total_weight => $inside_weight_sum;
        },
        "iteration 0",
       );
@@ -708,7 +708,7 @@ subtest 'coords + clip + weight results' => sub {
             call iter => 56;
             call dist => validator( '==', $sample->dist => sub { $_ == $sample->dist } );
             call nelem => 43597;
-            call weight => 43597 * 2;
+            call total_weight => 43597 * 2;
             call center_0 => validator( '==', $sample->center->[0] => sub { $_ ==  $sample->center->[0] } );
             call center_1 => validator( '==', $sample->center->[1] => sub { $_ ==  $sample->center->[1] } );
             end(),
