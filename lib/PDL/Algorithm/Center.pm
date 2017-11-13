@@ -36,11 +36,15 @@ our @EXPORT_OK = qw[ sigma_clip iterate ];
 
 
 sub _weighted_mean_center {
-    my ( $coords, $wmask, $weight ) = @_;
+    my ( $coords, $mask, $weight, $total_weight ) = @_;
 
-    $weight //= $wmask->dsum;
+    my $wmask = $mask * $weight;
 
-    return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover / $weight;
+    $total_weight //= $wmask->dsum;
+
+
+    return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover
+      / $total_weight;
 }
 
 sub _distance {
@@ -52,21 +56,21 @@ sub _distance {
 
 sub _sigma_clip_initialize {
 
-    my ( $init_clip, $dtol, $coords, $wmask, $current, $work ) = @_;
+    my ( $init_clip, $dtol, $coords, $mask, $weight, $current, $work ) = @_;
 
     $current->{clip} = $init_clip;
 
     my $r2 = $work->{r2} = PDL->null;
     $r2 .= ( ( $coords - $current->center )**2 )->dsumover;
 
+    $mask *= ( $r2 <= $init_clip**2 )
+      if defined $init_clip;
 
-    if ( defined $init_clip ) {
-        $wmask = $wmask->copy;
-        $wmask *= $r2 <= $init_clip**2;
-    }
+    my $wmask = $work->{wmask} = $mask * $weight;
 
     $current->weight( $wmask->dsum );
-    $current->nelem( ( $wmask > 0 )->dsum );
+    $current->nelem( $mask->sum );
+
     $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->weight );
 
     return;
@@ -74,16 +78,20 @@ sub _sigma_clip_initialize {
 
 sub _sigma_clip_wmask {
 
-    my ( $nsigma, $coords, $wmask, $iter, $work ) = @_;
+    my ( $nsigma, $coords, $mask, $weight, $iter, $work ) = @_;
 
     my $r2 = $work->{r2};
     $r2 .= ( ( $coords - $iter->center )**2 )->dsumover;
 
     $iter->clip( $nsigma * $iter->sigma );
-    $wmask *= $r2 < $iter->clip**2;
 
-    $iter->weight( $wmask->dsum );
-    $iter->nelem( ( $wmask > 0 )->dsum );
+    $mask *= $r2 < $iter->clip**2;
+
+    $iter->weight( ( $mask * $weight )->dsum );
+    $iter->nelem( $mask->sum );
+
+    my $wmask = $work->{wmask};
+    $wmask .= $mask * $weight;
 
     $iter->sigma( sqrt( ( $wmask * $r2 )->dsum / $iter->weight ) );
 
@@ -93,7 +101,7 @@ sub _sigma_clip_wmask {
 
 sub _sigma_clip_is_converged {
 
-    my ( $init_clip, $dtol, $coords, $wmask, $last, $current ) = @_;
+    my ( $init_clip, $dtol, $coords, $mask, $weight, $last, $current ) = @_;
 
     $current->{dist} = undef;
 
@@ -236,15 +244,15 @@ be determined by finding the mean of the values in that dimension.
 
 =item *
 
-a piddle with shape I<N>  (or
+A piddle with shape I<N>  (or
 something that can be coerced into one, see L</TYPES>),
 
 =item *
 
-a coderef which will return the center as a piddle with shape I<N>.
+A coderef which will return the center as a piddle with shape I<N>.
 The subroutine is called as
 
-  &$center( $coords, $wmask, $weight );
+  &$center( $coords, $mask, $weight, $total_weight );
 
 with
 
@@ -252,15 +260,19 @@ with
 
 =item C<$coords>
 
-a piddle with shape I<NxM> containing I<M> coordinates with dimension I<N>
+A piddle with shape I<NxM> containing I<M> coordinates with dimension I<N>
 
-=item C<$wmask>
+=item C<$mask>
 
-a piddle of shape I<M> containing weights
+A piddle with shape I<M>, essentially a flattened copy of the initial C<$mask> option to L</iterate>.
 
 =item C<$weight>
 
-a scalar which is the sum of the weights in C<$wmask>
+A piddle with shape I<M>, essentially a copy of the initial C<$weight> option to L</iterate>.
+
+=item C<$total_weight>
+
+A scalar which is the sum of  C<$mask * $weight>
 
 =back
 
@@ -278,6 +290,9 @@ L</TYPES>) where I<N> is the number of dimensions in the data and
 I<M> is the number of data elements.
 
 C<weight> may be specified with coords to indicate weighted data.
+
+C<mask> may be specified to indicate that a subset of the coordinates
+should be operated on.
 
 C<coords> is useful if the data cube is not fully populated; for dense
 data, use C<weight> I<instead>.
@@ -304,8 +319,9 @@ iteration's results object; see L</Sigma Clip Iteration Results>.
 
 =item C<mask> => I<piddle>
 
-I<Optional>. This specifies data elements to ignore completely.
-True values indicate elements to be used, false those to be ignored.
+I<Optional>. This is a piddle which specifies which coordinates to include in
+the calculations. Its values are either C<0> or C<1>, where values of C<1>
+indicate coordinates to be included.  It defaults to a piddle of all C<1>'s.
 
 When used with C<coords>, C<mask> must be a piddle of shape I<M>,
 where I<M> is the number of data elements in C<coords>.
@@ -329,6 +345,8 @@ a piddle of shape I<M>, where I<M> is the number of data elements in
 C<coords>. If C<coords> is not specified, C<weight> is a piddle of
 shape I<NxM>, where I<N> is the number of dimensions in the data and
 I<M> is the number of data elements.
+
+It defaults to a piddle of all C<1>'s.
 
 =back
 
@@ -355,8 +373,9 @@ describing the failure.  See L</Errors>.
 
 =item C<wmask> => I<piddle>
 
-If the C<$save_wmask> option is true, this will be the
-weighted mask used to weight the data elements in the final iteration.
+If the C<$save_wmask> option is true, this will be the weighted mask
+(i.e. C<$mask * $weight> ) used to weight the data elements in the
+final iteration.
 
 =back
 
@@ -542,9 +561,9 @@ sub sigma_clip {
     };
 
     $opt->{calc_center} //= sub {
-        my ( $coords, $wmask, $iter ) = @_;
+        my ( $coords, $mask, $weight, $iter ) = @_;
 
-        _weighted_mean_center( $coords, $wmask, $iter->weight );
+        _weighted_mean_center( $coords, $mask, $weight, $iter->weight );
     };
 
     my ( $clip, $dtol ) = delete @{$opt}{ 'clip', 'dtol' };
@@ -580,7 +599,7 @@ sub sigma_clip {
   );
 
 A generic iteration loop for centering data using callbacks for
-calculating centers, weight masks, and iteration completion.
+calculating centers, included element masks, weight, and iteration completion.
 
 =head3 Options
 
@@ -595,7 +614,7 @@ something that can be coerced into one, see L</TYPES>) or a coderef
 which will return the center as a piddle with shape I<N>.  The coderef
 is called as
 
-  $initial_center = &$center( $coords, $wmask, $weight );
+  $initial_center = &$center( $coords, $mask, $weight, $total_weight );
 
 with
 
@@ -603,15 +622,19 @@ with
 
 =item C<$coords>
 
-a piddle with shape I<NxM> containing I<M> coordinates with dimension I<N>
+A piddle with shape I<NxM> containing I<M> coordinates with dimension I<N>
 
-=item C<$wmask>
+=item C<$mask>
 
-a piddle of shape I<M> containing weights
+A piddle with shape I<M>, essentially a flattened copy of the initial C<$mask> option to L</iterate>.
 
 =item C<$weight>
 
-a scalar which is the sum of the weights in C<$wmask>
+A piddle with shape I<M>, essentially a copy of the initial C<$weight> option to L</iterate>.
+
+=item C<$total_weight>
+
+A scalar which is the sum of C<$mask * $weight>.
 
 =back
 
@@ -623,7 +646,7 @@ work storage.
 
 It is invoked as:
 
-  &$initialize( $coords, $wmask, $current, $work );
+  &$initialize( $coords, $mask, $weight, $current, $work );
 
 with
 
@@ -631,11 +654,15 @@ with
 
 =item C<$coords>
 
-a piddle of shape I<NxM> with the coordinates of each element
+A piddle of shape I<NxM> with the coordinates of each element
 
-=item C<$wmask>
+=item C<$mask>
 
-a piddle of shape I<M> with weights for each element
+A piddle with shape I<M>, essentially a flattened copy of the initial C<$mask> option to L</iterate>.
+
+=item C<$weight>
+
+A piddle with shape I<M>, essentially a copy of the initial C<$weight> option to L</iterate>.
 
 =item C<$current>
 
@@ -648,17 +675,17 @@ are provided by C<iterate>:
 
 =item C<nelem>
 
-the number of elements
+The number of included coordinates, C<$mask->sum>.
 
 =item C<weight>
 
-the sum of the weights of the elements
+The sum of the weights of the included coordinates, C<< ($mask * $weight)->dsum >>.
 
 =back
 
 =item C<$work>
 
-a hashref which  may use to store temporary data (e.g. work
+A hashref which  may use to store temporary data (e.g. work
 piddles) which will be available to all of the callback routines.
 
 =back
@@ -670,7 +697,7 @@ calculated center.
 
 It will be called as:
 
-  $center = &$calc_center( $coords, $wmask, $current, $work );
+  $center = &$calc_center( $coords, $mask, $weight, $current, $work );
 
 with
 
@@ -678,15 +705,19 @@ with
 
 =item C<$coords>
 
-a piddle of shape I<NxM> with the coordinates of each element
+A piddle of shape I<NxM> with the coordinates of each element
 
-=item C<$wmask>
+=item C<$mask>
 
-a piddle of shape I<M> with weights for each element
+A piddle with shape I<M> containing the current inclusion mask.
+
+=item C<$weight>
+
+A piddle with shape I<M> containing the current weights for the included coordinates.
 
 =item C<$current>
 
-a reference to a L<Hash::Wrap> based object containing
+A reference to a L<Hash::Wrap> based object containing
 data for the current iteration.
 
 C<calc_center> may augment the underlying hash with its own data (but
@@ -697,29 +728,29 @@ C<iterate>:
 
 =item C<nelem>
 
-the number of elements
+The number of included coordinates, C<< $mask->sum >>.
 
 =item C<weight>
 
-the sum of the weights of the elements
+The sum of the weights of the included coordinates, C<< ($mask*$weight)->dsum) >>.
 
 =back
 
 =item C<$work>
 
-a hashref which  may use to store temporary data (e.g. work
+A hashref which  may use to store temporary data (e.g. work
 piddles) which will be available to all of the callback routines.
 
 =back
 
 =item C<calc_wmask> => I<coderef>
 
-This subroutine should determine the current weight for each element.
-To ignore an element set its weight to zero.
+This subroutine should determine the current set of included
+coordinates and their current weights.
 
 It will be called as:
 
-  &$calc_mask( $coords, $wmask, $current, $work );
+  &$calc_mask( $coords, $mask, $weight, $current, $work );
 
 with
 
@@ -727,17 +758,25 @@ with
 
 =item C<$coords>
 
-a piddle of shape I<NxM> with the coordinates of each element
+A piddle of shape I<NxM> with the coordinates of each element
 
-=item C<$wmask>
+=item C<$mask>
 
-a piddle of shape I<M> with the initial weights for each element( as
-passed via the C<weight> option). C<calc_mask> should update it for
-the current iteration.
+A piddle with shape I<M>, essentially a flattened copy of the initial
+C<$mask> option to L</iterate>.  Any changes to it will be discarded
+at the end of the iteration.  Be sure to update C<< $current->nelem >>
+if this is changed.
+
+=item C<$weight>
+
+A piddle with shape I<M>, essentially a flattened copy of the initial
+C<$mask> option to L</iterate>.  Any changes to it will be discarded
+at the end of the iteration.  Be sure to update C<< $current->weight
+>> if this is changed.
 
 =item C<$current>
 
-a reference to a L<Hash::Wrap> based object containing data for the
+A reference to a L<Hash::Wrap> based object containing data for the
 current iteration.
 
 C<calc_center> may augment the underlying hash with its own data (but
@@ -748,19 +787,21 @@ C<iterate>:
 
 =item C<nelem>
 
-the number of elements with non-zero weight.  If C<calc_mask> changes
-C<$wmask>, this must either be updated or set to the undefined value.
+The number of included coordinates, C<< $mask->sum >>.  If
+C<$mask> is changed this must either be updated or set to the
+undefined value.
 
 =item C<weight>
 
-the sum of the weights of the elements.  If C<calc_mask> changes
-C<$wmask>, this must either be updated or set to the undefined value.
+The sum of the weights of the included coordinates, C<< ($mask *
+$weight)->dsum >>.  If C<$weight> is changed this must either be
+updated or set to the undefined value.
 
 =back
 
 =item C<$work>
 
-a hashref which  may use to store temporary data (e.g. work
+A hashref which  may use to store temporary data (e.g. work
 piddles) which will be available to all of the callback routines.
 
 =back
@@ -772,7 +813,7 @@ iteration has converged.
 
 It is invoked as:
 
-  $bool = &$is_converged( $coords, $wmask, $last, $current, $work );
+  $bool = &$is_converged( $coords, $mask, $weight, $last, $current, $work );
 
 with
 
@@ -780,15 +821,19 @@ with
 
 =item C<$coords>
 
-a piddle of shape I<NxM> with the coordinates of each element
+A piddle of shape I<NxM> with the coordinates of each element
 
-=item C<$wmask>
+=item C<$mask>
 
-a piddle of shape I<M> with weights for each element
+A piddle with shape I<M> containing the current inclusion mask.
+
+=item C<$weight>
+
+A piddle with shape I<M> containing the current weights for the included coordinates.
 
 =item C<$last>
 
-a reference to a L<Hash::Wrap> based object containing data for the
+A reference to a L<Hash::Wrap> based object containing data for the
 previous iteration.  C<is_converged> may augment the underlying hash
 with its own data (but see L</Workspace>). The following
 attributes are provided by C<iterate>:
@@ -797,22 +842,22 @@ attributes are provided by C<iterate>:
 
 =item C<nelem>
 
-the number of elements
+The number of included coordinates.
 
 =item C<weight>
 
-the sum of the weights of the elements
+The sum of the weights of the included coordinates.
 
 =back
 
 =item C<$current>
 
-a reference to a L<Hash::Wrap> based object containing data for the
+A reference to a L<Hash::Wrap> based object containing data for the
 current iteration, with attributes as described above for C<$last>
 
 =item C<$work>
 
-a hashref which  may use to store temporary data (e.g. work
+A hashref which  may use to store temporary data (e.g. work
 piddles) which will be available to all of the callback routines.
 
 =back
@@ -835,7 +880,7 @@ I<M> is the number of data elements.
 
 =item C<iterlim>
 
-a positive integer specifying the maximum number of iterations.
+A positive integer specifying the maximum number of iterations.
 
 =item C<log> => I<coderef>
 
@@ -870,11 +915,11 @@ The iteration index
 
 =item C<nelem>
 
-The number of elements in the current selected set.
+The number of included coordinates.
 
 =item C<weight>
 
-The summed weight of the selected elements.
+The summed weight of the included coordinates.
 
 =back
 
@@ -884,8 +929,9 @@ L</Sigma Clip Iterations>.
 
 =item C<mask> => I<piddle>
 
-I<Optional>. This specifies data elements to ignore completely.
-True values indicate elements to be used, false those to be ignored.
+I<Optional>. This is a piddle which specifies which coordinates to include in
+the calculations. Its values are either C<0> or C<1>, where values of C<1>
+indicate coordinates to be included.  It defaults to a piddle of all C<1>'s.
 
 When used with C<coords>, C<mask> must be a piddle of shape I<M>,
 where I<M> is the number of data elements in C<coords>.
@@ -905,6 +951,8 @@ be a piddle of shape I<M>, where I<M> is the number of data elements
 in C<coords>. If C<coords> is not specified, C<weight> is a piddle of
 shape I<NxM>, where I<N> is the number of dimensions in the data and
 I<M> is the number of data elements.
+
+It defaults to a piddle of all C<1>'s.
 
 =back
 
@@ -949,7 +997,7 @@ describing the failure.  See L</Errors>.
 =item C<wmask> => I<piddle>
 
 If the C<$save_wmask> option is true, this will be the
-weighted mask used to weight the data elements in the final iteration.
+weighted mask used to weight the data elements in the final iteration (i.e. C<< $mask & $weight >>).
 
 =back
 
@@ -1019,7 +1067,8 @@ Creat a new iteration object by B<copying> the old one.
 
 =item 2
 
-Call C<calc_wmask>
+Call C<calc_wmask>, with a copy of the initial mask and weights. C<calc_mask>
+should update (in place) at least one of them
 
 =item 3
 
@@ -1027,11 +1076,11 @@ Update summed weight and number of elements if C<calc_wmask> sets them to C<unde
 
 =item 4
 
-Call C<calc_center>
+Call C<calc_center> with the current mask and weights.
 
 =item 5
 
-Call C<is_converged>
+Call C<is_converged> with the current mask and weights.
 
 =item 6
 
@@ -1065,6 +1114,8 @@ sub iterate {
 
     $opt->{log}        //= undef;
     $opt->{save_wmask} //= 0;
+    $opt->{mask}       //= undef;
+    $opt->{weight}     //= undef;
 
     my ( $ndims, $nelem ) = $opt->coords->dims;
 
@@ -1072,28 +1123,41 @@ sub iterate {
       for grep { defined $opt->{$_} && $opt->{$_}->nelem != $nelem }
       qw[ mask weight ];
 
-    # use mask to remove unwanted elements
-    if ( defined $opt->{mask} ) {
+    # if ( defined $opt->mask ) {
 
-        my $select = $opt->mask != 0;
-        $opt->coords(
-            $opt->coords->mv( -1, 0 )->whereND( $select )->mv( 0, -1 )->sever );
+  #     my $select = $opt->mask != 0;
+  #     $opt->coords(
+  #         $opt->coords->mv( -1, 0 )->whereND( $select )->mv( 0, -1 )->sever );
 
-        ( $ndims, $nelem ) = $opt->coords->dims;
+    #     ( $ndims, $nelem ) = $opt->coords->dims;
 
-        $opt->weight( $opt->weight->where( $select )->sever )
-          if defined $opt->{weight};
+    #     $opt->weight( $opt->weight->where( $select )->sever )
+    #       if defined $opt->{weight};
+    # }
+
+    $opt->weight(
+        defined $opt->weight
+        ? PDL::convert( $opt->weight, PDL::double )
+        : PDL->ones( PDL::double, $nelem ),
+    );
+
+    my $total_weight;
+
+    if ( defined $opt->mask ) {
+        $nelem = $opt->mask->sum;
+        $total_weight = ( $opt->mask * $opt->weight )->dsum;
+    }
+    else {
+        $opt->mask( PDL->ones( PDL::long, $nelem ) );
+        $total_weight = $opt->weight->dsum;
     }
 
-    my $wmask_base
-      = defined $opt->{weight}
-      ? PDL::convert( $opt->weight, PDL::double )
-      : PDL->ones( PDL::double, $opt->coords->getdim( -1 ) );
-    my $wmask_base_weight = $wmask_base->dsum;
-    my $wmask_base_nelem  = ( $wmask_base > 0 )->dsum;
+
+    my $mask   = $opt->mask->copy;
+    my $weight = $opt->weight->copy;
 
     $opt->center(
-        $opt->center->( $opt->coords, $wmask_base, $wmask_base_weight ) )
+        $opt->center->( $opt->coords, $mask, $weight, $total_weight ) )
       if is_coderef( $opt->center );
 
     parameter_failure->throw(
@@ -1108,20 +1172,22 @@ sub iterate {
 
     my @iteration;
 
-    my $wmask = $wmask_base->copy;
-    my $work  = {};
+    my $work   = {};
 
     # Set up initial state
 
     push @iteration,
       new_iteration( {
           center => $opt->center,
-          weight => $wmask_base_weight,
-          nelem  => $wmask_base_nelem,
+          weight => $total_weight,
+          nelem  => $nelem,
           iter   => 0,
       } );
 
-    $opt->initialize->( $opt->coords, $wmask, $iteration[-1], $work );
+    $mask   .= $opt->mask;
+    $weight .= $opt->weight;
+
+    $opt->initialize->( $opt->coords, $mask, $weight, $iteration[-1], $work );
 
     $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
 
@@ -1139,25 +1205,26 @@ sub iterate {
 
             ++$current->{iter};
 
-            $current->weight( $wmask_base_weight );
-            $current->nelem( $wmask_base_nelem );
-            $wmask .= $wmask_base;
+            $current->weight( $total_weight );
+            $current->nelem( $nelem );
 
-            $opt->calc_wmask->( $opt->coords, $wmask, $current, $work );
+            $mask   .= $opt->mask;
+            $weight .= $opt->weight;
 
-            $current->weight( $wmask->dsum ) unless defined $current->weight;
-            $current->nelem( ( $wmask > 0 )->dsum )
+            $opt->calc_wmask->( $opt->coords, $mask, $weight, $current, $work );
+
+            $current->weight( ( $mask * $weight ) ->dsum ) unless defined $current->weight;
+            $current->nelem( $mask->sum )
               unless defined $current->nelem;
 
-            iteration_empty_failure->throw(
-                msg => "no elements left after clip" )
+            iteration_empty_failure->throw( "no elements left after clip" )
               if $current->nelem == 0;
 
             $current->center(
-                $opt->calc_center->( $opt->coords, $wmask, $current, $work ) );
+                $opt->calc_center->( $opt->coords, $mask, $weight, $current, $work ) );
 
             $converged = $opt->is_converged->(
-                $opt->coords, $wmask, $last, $current, $work
+                $opt->coords, $mask, $weight, $last, $current, $work
             );
 
             $opt->log && $opt->log->( new_iteration( $current ) );
