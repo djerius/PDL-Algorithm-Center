@@ -20,7 +20,7 @@ use custom::failures;
 use Package::Stash;
 use Hash::Wrap;
 
-use PDL::Algorithm::Center::Failure;
+use PDL::Algorithm::Center::Failure ':all';
 
 use PDL::Algorithm::Center::Types -all;
 use Types::Standard -types;
@@ -42,6 +42,8 @@ sub _weighted_mean_center {
 
     $total_weight //= $wmask->dsum;
 
+    iteration_center_failure->throw( "weight == 0" )
+      if $total_weight == 0;
 
     return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover
       / $total_weight;
@@ -71,6 +73,9 @@ sub _sigma_clip_initialize {
     $current->weight( $wmask->dsum );
     $current->nelem( $mask->sum );
 
+    iteration_initialize_failure->throw( "weight == 0" )
+      if $current->weight == 0;
+
     $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->weight );
 
     return;
@@ -92,6 +97,9 @@ sub _sigma_clip_wmask {
 
     my $wmask = $work->{wmask};
     $wmask .= $mask * $weight;
+
+    iteration_calc_wmask_failure->throw( "weight == 0" )
+      if $iter->weight == 0;
 
     $iter->sigma( sqrt( ( $wmask * $r2 )->dsum / $iter->weight ) );
 

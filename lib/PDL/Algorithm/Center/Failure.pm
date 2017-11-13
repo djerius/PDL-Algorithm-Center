@@ -10,7 +10,9 @@ use custom::failures();
 use Package::Stash;
 
 use Exporter 'import';
-our @EXPORT;
+
+our @EXPORT_OK;
+our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
 BEGIN {
 
@@ -18,6 +20,10 @@ BEGIN {
       parameter
       iteration::limit_reached
       iteration::empty
+      iteration::initialize
+      iteration::is_converged
+      iteration::calc_wmask
+      iteration::center
     >;
 
     custom::failures->import( __PACKAGE__, @failures );
@@ -32,7 +38,7 @@ BEGIN {
 
         $stash->add_symbol( "&$name", sub () { __PACKAGE__ . "::$failure" } );
 
-        push @EXPORT, $name;
+        push @EXPORT_OK, $name;
     }
 
 }
