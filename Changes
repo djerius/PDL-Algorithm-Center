@@ -2,17 +2,20 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.05      2017-11-02 17:06:11-04:00 America/New_York
+
   [API BREAKAGE]
 
     * inclusion masks and weights are now treated as separate
-      objects; all callbacks must treat them as such.
+      objects; all callbacks must treat them as such and are
+      passed both.
 
     * iteration results attribute weight is now total_weight
       to differentiate it from the weight piddle
 
   [ENHANCEMENT]
 
-    * iterate/sigma_clip: save_mask, save_weight optiosn returns
+    * iterate/sigma_clip: save_mask, save_weight options return
       mask/weight used in last iteration.
 
     * sigma_clip: a default logger is provided
@@ -21,6 +24,11 @@ Revision history for {{$dist->name}}
 
     * sigma_clip: insure there's an "iter" attribute
       in the first Iteration object
+
+    * sigma_clip callbacks now throw on divide-by-zero errors
+
+    * iterate catches the initialize callbacks's errors and
+      returns them via the result->error attribute
 
 0.04      2017-10-25 14:54:41-04:00 America/New_York
 
