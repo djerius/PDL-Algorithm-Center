@@ -81,7 +81,7 @@ sub _sigma_clip_initialize {
     return;
 }
 
-sub _sigma_clip_wmask {
+sub _sigma_clip_calc_wmask {
 
     my ( $nsigma, $coords, $mask, $weight, $iter, $work ) = @_;
 
@@ -575,7 +575,7 @@ sub sigma_clip {
 
     my $nsigma = delete $opt->{nsigma};
     $opt->{calc_wmask} //= sub {
-        _sigma_clip_wmask( $nsigma, @_ );
+        _sigma_clip_calc_wmask( $nsigma, @_ );
         return;
     };
 
