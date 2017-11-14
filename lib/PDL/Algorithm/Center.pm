@@ -42,7 +42,7 @@ sub _weighted_mean_center {
 
     $total_weight //= $wmask->dsum;
 
-    iteration_center_failure->throw( "weight == 0" )
+    iteration_empty_failure->throw( "weighted mean center: all elements excluded or sum(weight) == 0" )
       if $total_weight == 0;
 
     return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover
@@ -73,7 +73,7 @@ sub _sigma_clip_initialize {
     $current->total_weight( $wmask->dsum );
     $current->nelem( $mask->sum );
 
-    iteration_initialize_failure->throw( "weight == 0" )
+    iteration_empty_failure->throw( "sigma_clip initialize: all elements excluded or sum(weight) == 0" )
       if $current->total_weight == 0;
 
     $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->total_weight );
@@ -98,7 +98,7 @@ sub _sigma_clip_calc_wmask {
     my $wmask = $work->{wmask};
     $wmask .= $mask * $weight;
 
-    iteration_calc_wmask_failure->throw( "weight == 0" )
+    iteration_empty_failure->throw( "sigma_clip calc_wmask: all elements excluded or sum(weight) == 0" )
       if $iter->total_weight == 0;
 
     $iter->sigma( sqrt( ( $wmask * $r2 )->dsum / $iter->total_weight ) );
@@ -199,6 +199,9 @@ piddle is provided, it is converted internally into a list of
 coordinates with associated weights.
 
 To operate on a subset of the input data, specify the C<mask> option.
+
+A L<PDL::Algorithm::Center::Failure::parameter> exception will be
+thrown if there is a parameter error.
 
 The center of a data set is determined by:
 
@@ -620,6 +623,9 @@ sub sigma_clip {
 
 A generic iteration loop for centering data using callbacks for
 calculating centers, included element masks, weight, and iteration completion.
+
+A L<PDL::Algorithm::Center::Failure::parameter> exception will be
+thrown if there is a parameter error.
 
 =head3 Options
 
@@ -1338,16 +1344,15 @@ Errors are represented as objects in the following classes:
 
 =item Parameter Validation
 
-These are unconditionally thrown.
-
-  PDL::Algorithm::Center::parameter
+These are unconditionally thrown as
+L<PDL::Algorithm::Center::Failure::parameter> objects.
 
 =item Iteration
 
 These are stored in the result object's C<error> attribute.
 
-  PDL::Algorithm::Center::iteration::limit_reached
-  PDL::Algorithm::Center::iteration::empty
+  PDL::Algorithm::Center::Failure::iteration::limit_reached
+  PDL::Algorithm::Center::Failure::iteration::empty
 
 =back
 

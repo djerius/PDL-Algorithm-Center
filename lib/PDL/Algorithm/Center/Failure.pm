@@ -20,10 +20,6 @@ BEGIN {
       parameter
       iteration::limit_reached
       iteration::empty
-      iteration::initialize
-      iteration::is_converged
-      iteration::calc_wmask
-      iteration::center
     >;
 
     custom::failures->import( __PACKAGE__, @failures );
