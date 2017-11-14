@@ -1213,14 +1213,15 @@ sub iterate {
     $mask   .= $opt->mask;
     $weight .= $opt->weight;
 
-    $opt->initialize->( $opt->coords, $mask, $weight, $iteration[-1], $work );
 
-    $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
-
-    my $iteration;
+    my $iteration = 0;
     my $converged;
 
     eval {
+
+        $opt->initialize->( $opt->coords, $mask, $weight, $iteration[-1], $work );
+
+        $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
 
         while ( !$converged && ++$iteration <= $opt->iterlim ) {
 

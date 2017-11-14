@@ -18,16 +18,17 @@ See ["TYPES"](#types) for information on the types used in the subroutine descri
 ## sigma\_clip
 
     $results = sigma_clip(
-        center    => Optional [ Center | CodeRef ],
-        clip      => Optional [PositiveNum],
-        coords    => Optional [Coords],
-        dtol      => PositiveNum,
-        iterlim   => Optional [PositiveInt],
-        log       => Optional [CodeRef],
-        mask      => Optional [ Undef | Piddle_min1D_ne ],
-        save_mask => Optional [Bool],
-        nsigma    => PositiveNum,
-        weight    => Optional [ Undef | Piddle_min1D_ne ],
+        center      => Optional [ Center | CodeRef ],
+        clip        => Optional [PositiveNum],
+        coords      => Optional [Coords],
+        dtol        => PositiveNum,
+        iterlim     => Optional [PositiveInt],
+        log         => Optional [Bool | CodeRef],
+        mask        => Optional [ Undef | Piddle_min1D_ne ],
+        save_mask   => Optional [Bool],
+        save_weight => Optional [Bool],
+        nsigma      => PositiveNum,
+        weight      => Optional [ Undef | Piddle_min1D_ne ],
     );
 
 Center a dataset by iteratively excluding data outside of a radius
@@ -36,6 +37,11 @@ specified as a list of coordinates and optional weights, or as a
 weight piddle of shape _NxM_ (e.g., an image).  If only the weight
 piddle is provided, it is converted internally into a list of
 coordinates with associated weights.
+
+To operate on a subset of the input data, specify the `mask` option.
+
+A [PDL::Algorithm::Center::Failure::parameter](https://metacpan.org/pod/PDL::Algorithm::Center::Failure::parameter) exception will be
+thrown if there is a parameter error.
 
 The center of a data set is determined by:
 
@@ -67,26 +73,30 @@ The following options are available:
         The array may contain undefined values for each dimension for which the center should
         be determined by finding the mean of the values in that dimension.
 
-    - a piddle with shape _N_  (or
+    - A piddle with shape _N_  (or
     something that can be coerced into one, see ["TYPES"](#types)),
-    - a coderef which will return the center as a piddle with shape _N_.
+    - A coderef which will return the center as a piddle with shape _N_.
     The subroutine is called as
 
-            &$center( $coords, $wmask, $weight );
+            &$center( $coords, $mask, $weight, $total_weight );
 
         with
 
         - `$coords`
 
-            a piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
+            A piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
 
-        - `$wmask`
+        - `$mask`
 
-            a piddle of shape _M_ containing weights
+            A piddle with shape _M_, essentially a flattened copy of the initial `$mask` option to ["iterate"](#iterate).
 
         - `$weight`
 
-            a scalar which is the sum of the weights in `$wmask`
+            A piddle with shape _M_, essentially a copy of the initial `$weight` option to ["iterate"](#iterate).
+
+        - `$total_weight`
+
+            A scalar which is the sum of  `$mask * $weight`
 
 - `clip` => _positive number_
 
@@ -101,6 +111,9 @@ The following options are available:
 
     `weight` may be specified with coords to indicate weighted data.
 
+    `mask` may be specified to indicate that a subset of the coordinates
+    should be operated on.
+
     `coords` is useful if the data cube is not fully populated; for dense
     data, use `weight` _instead_.
 
@@ -113,16 +126,22 @@ The following options are available:
 
     _Optional_. The maximum number of iterations to run.  Defaults to 10.
 
-- `log` => _coderef_
+- `log` => _boolean|coderef_
 
-    _Optional_. A subroutine which will be called before the first iteration and at
+    _Optional_.
+
+    If `log` is true (and not a _coderef_), a default logger which outputs
+    to **STDOUT** will be used.
+
+    If a _coderef_ it will be called before the first iteration and at
     the end of each iteration. It is passed a copy of the current
     iteration's results object; see ["Sigma Clip Iteration Results"](#sigma-clip-iteration-results).
 
 - `mask` => _piddle_
 
-    _Optional_. This specifies data elements to ignore completely.
-    True values indicate elements to be used, false those to be ignored.
+    _Optional_. This is a piddle which specifies which coordinates to include in
+    the calculations. Its values are either `0` or `1`, where values of `1`
+    indicate coordinates to be included.  It defaults to a piddle of all `1`'s.
 
     When used with `coords`, `mask` must be a piddle of shape _M_,
     where _M_ is the number of data elements in `coords`.
@@ -133,6 +152,11 @@ The following options are available:
 - `save_mask` => _boolean_
 
     If true, the mask used in the final iteration will be returned
+    in the iteration result object.
+
+- `save_weight` => _boolean_
+
+    If true, the weights used in the final iteration will be returned
     in the iteration result object.
 
 - `nsigma` => _scalar_
@@ -146,6 +170,8 @@ The following options are available:
     `coords`. If `coords` is not specified, `weight` is a piddle of
     shape _NxM_, where _N_ is the number of dimensions in the data and
     _M_ is the number of data elements.
+
+    It defaults to a piddle of all `1`'s.
 
 ### Sigma Clip Results
 
@@ -168,8 +194,13 @@ the following additional attributes/methods:
 
 - `mask` => _piddle_
 
-    If the `$save_mask` option is true, this will be the
-    mask used to weight the data elements in the final iteration.
+    If the `$save_mask` option is true, this will be the final
+    inclusion mask.
+
+- `weight` => _piddle_
+
+    If the `$save_weight` option is true, this will be the final
+    weights.
 
 #### Sigma Clip Iterations
 
@@ -191,7 +222,7 @@ following attributes/methods:
 
     The number of data elements used in the center.
 
-- `weight` => _number_
+- `total_weight` => _number_
 
     The combined weight of the data elements used to determine the center.
 
@@ -223,11 +254,15 @@ following attributes/methods:
       log          => Optional [CodeRef],
       mask         => Optional [Piddle1D_ne],
       save_mask    => Optional [Bool],
+      save_weight  => Optional [Bool],
       weight       => Optional [Piddle1D_ne],
     );
 
 A generic iteration loop for centering data using callbacks for
-calculating centers, weight masks, and iteration completion.
+calculating centers, included element masks, weight, and iteration completion.
+
+A [PDL::Algorithm::Center::Failure::parameter](https://metacpan.org/pod/PDL::Algorithm::Center::Failure::parameter) exception will be
+thrown if there is a parameter error.
 
 ### Options
 
@@ -240,21 +275,25 @@ The following options are accepted:
     which will return the center as a piddle with shape _N_.  The coderef
     is called as
 
-        $initial_center = &$center( $coords, $wmask, $weight );
+        $initial_center = &$center( $coords, $mask, $weight, $total_weight );
 
     with
 
     - `$coords`
 
-        a piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
+        A piddle with shape _NxM_ containing _M_ coordinates with dimension _N_
 
-    - `$wmask`
+    - `$mask`
 
-        a piddle of shape _M_ containing weights
+        A piddle with shape _M_, essentially a flattened copy of the initial `$mask` option to ["iterate"](#iterate).
 
     - `$weight`
 
-        a scalar which is the sum of the weights in `$wmask`
+        A piddle with shape _M_, essentially a copy of the initial `$weight` option to ["iterate"](#iterate).
+
+    - `$total_weight`
+
+        A scalar which is the sum of `$mask * $weight`.
 
 - `initialize` => _coderef_
 
@@ -264,36 +303,40 @@ The following options are accepted:
 
     It is invoked as:
 
-        &$initialize( $coords, $wmask, $current, $work );
+        &$initialize( $coords, $mask, $weight, $current, $work );
 
     with
 
     - `$coords`
 
-        a piddle of shape _NxM_ with the coordinates of each element
+        A piddle of shape _NxM_ with the coordinates of each element
 
-    - `$wmask`
+    - `$mask`
 
-        a piddle of shape _M_ with weights for each element
+        A piddle with shape _M_, essentially a flattened copy of the initial `$mask` option to ["iterate"](#iterate).
+
+    - `$weight`
+
+        A piddle with shape _M_, essentially a copy of the initial `$weight` option to ["iterate"](#iterate).
 
     - `$current`
 
         a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
         current iteration.  `initialize` may augment the underlying hash with
-        its own data (but see ["Workspace"](#workspace)). The following attributes
+        its own data (but see ["Work Space"](#work-space)). The following attributes
         are provided by `iterate`:
 
         - `nelem`
 
-            the number of elements
+            The number of included coordinates, `$mask-`sum>.
 
-        - `weight`
+        - `total_weight`
 
-            the sum of the weights of the elements
+            The sum of the weights of the included coordinates, `($mask * $weight)->dsum`.
 
     - `$work`
 
-        a hashref which  may use to store temporary data (e.g. work
+        A hashref which  may use to store temporary data (e.g. work
         piddles) which will be available to all of the callback routines.
 
 - `calc_center` => _coderef_
@@ -303,21 +346,25 @@ The following options are accepted:
 
     It will be called as:
 
-        $center = &$calc_center( $coords, $wmask, $current, $work );
+        $center = &$calc_center( $coords, $mask, $weight, $current, $work );
 
     with
 
     - `$coords`
 
-        a piddle of shape _NxM_ with the coordinates of each element
+        A piddle of shape _NxM_ with the coordinates of each element
 
-    - `$wmask`
+    - `$mask`
 
-        a piddle of shape _M_ with weights for each element
+        A piddle with shape _M_ containing the current inclusion mask.
+
+    - `$weight`
+
+        A piddle with shape _M_ containing the current weights for the included coordinates.
 
     - `$current`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing
+        A reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing
         data for the current iteration.
 
         `calc_center` may augment the underlying hash with its own data (but
@@ -326,60 +373,69 @@ The following options are accepted:
 
         - `nelem`
 
-            the number of elements
+            The number of included coordinates, `$mask->sum`.
 
-        - `weight`
+        - `total_weight`
 
-            the sum of the weights of the elements
+            The sum of the weights of the included coordinates, `($mask*$weight)->dsum)`.
 
     - `$work`
 
-        a hashref which  may use to store temporary data (e.g. work
+        A hashref which  may use to store temporary data (e.g. work
         piddles) which will be available to all of the callback routines.
 
 - `calc_wmask` => _coderef_
 
-    This subroutine should determine the current weight for each element.
-    To ignore an element set its weight to zero.
+    This subroutine should determine the current set of included
+    coordinates and their current weights.
 
     It will be called as:
 
-        &$calc_mask( $coords, $wmask, $current, $work );
+        &$calc_mask( $coords, $mask, $weight, $current, $work );
 
     with
 
     - `$coords`
 
-        a piddle of shape _NxM_ with the coordinates of each element
+        A piddle of shape _NxM_ with the coordinates of each element
 
-    - `$wmask`
+    - `$mask`
 
-        a piddle of shape _M_ with the initial weights for each element( as
-        passed via the `weight` option). `calc_mask` should update it for
-        the current iteration.
+        A piddle with shape _M_, essentially a flattened copy of the initial
+        `$mask` option to ["iterate"](#iterate).  Any changes to it will be discarded
+        at the end of the iteration.  Be sure to update `$current->nelem`
+        if this is changed.
+
+    - `$weight`
+
+        A piddle with shape _M_, essentially a flattened copy of the initial
+        `$mask` option to ["iterate"](#iterate).  Any changes to it will be discarded
+        at the end of the iteration.  Be sure to update `$current->total_weight` if this is changed.
 
     - `$current`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        A reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
         current iteration.
 
         `calc_center` may augment the underlying hash with its own data (but
-        see ["Workspace"](#workspace)). The following attributes are provided by
+        see ["Work Space"](#work-space)). The following attributes are provided by
         `iterate`:
 
         - `nelem`
 
-            the number of elements with non-zero weight.  If `calc_mask` changes
-            `$wmask`, this must either be updated or set to the undefined value.
+            The number of included coordinates, `$mask->sum`.  If
+            `$mask` is changed this must either be updated or set to the
+            undefined value.
 
-        - `weight`
+        - `total_weight`
 
-            the sum of the weights of the elements.  If `calc_mask` changes
-            `$wmask`, this must either be updated or set to the undefined value.
+            The sum of the weights of the included coordinates, `($mask *
+            $weight)->dsum`.  If `$weight` is changed this must either be
+            updated or set to the undefined value.
 
     - `$work`
 
-        a hashref which  may use to store temporary data (e.g. work
+        A hashref which  may use to store temporary data (e.g. work
         piddles) which will be available to all of the callback routines.
 
 - `is_converged` => _coderef_
@@ -389,41 +445,45 @@ The following options are accepted:
 
     It is invoked as:
 
-        $bool = &$is_converged( $coords, $wmask, $last, $current, $work );
+        $bool = &$is_converged( $coords, $mask, $weight, $last, $current, $work );
 
     with
 
     - `$coords`
 
-        a piddle of shape _NxM_ with the coordinates of each element
+        A piddle of shape _NxM_ with the coordinates of each element
 
-    - `$wmask`
+    - `$mask`
 
-        a piddle of shape _M_ with weights for each element
+        A piddle with shape _M_ containing the current inclusion mask.
+
+    - `$weight`
+
+        A piddle with shape _M_ containing the current weights for the included coordinates.
 
     - `$last`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        A reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
         previous iteration.  `is_converged` may augment the underlying hash
-        with its own data (but see ["Workspace"](#workspace)). The following
+        with its own data (but see ["Work Space"](#work-space)). The following
         attributes are provided by `iterate`:
 
         - `nelem`
 
-            the number of elements
+            The number of included coordinates.
 
-        - `weight`
+        - `total_weight`
 
-            the sum of the weights of the elements
+            The sum of the weights of the included coordinates.
 
     - `$current`
 
-        a reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
+        A reference to a [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based object containing data for the
         current iteration, with attributes as described above for `$last`
 
     - `$work`
 
-        a hashref which  may use to store temporary data (e.g. work
+        A hashref which  may use to store temporary data (e.g. work
         piddles) which will be available to all of the callback routines.
 
     The `is_converged` routine is passed references to the **actual**
@@ -444,7 +504,7 @@ The following options are accepted:
 
 - `iterlim`
 
-    a positive integer specifying the maximum number of iterations.
+    A positive integer specifying the maximum number of iterations.
 
 - `log` => _coderef_
 
@@ -472,11 +532,11 @@ The following options are accepted:
 
     - `nelem`
 
-        The number of elements in the current selected set.
+        The number of included coordinates.
 
-    - `weight`
+    - `total_weight`
 
-        The summed weight of the selected elements.
+        The summed weight of the included coordinates.
 
     There may be other attributes added by the various callbacks
     (`calc_wmask`, `calc_center`, `is_converged`). See for example,
@@ -484,8 +544,9 @@ The following options are accepted:
 
 - `mask` => _piddle_
 
-    _Optional_. This specifies data elements to ignore completely.
-    True values indicate elements to be used, false those to be ignored.
+    _Optional_. This is a piddle which specifies which coordinates to include in
+    the calculations. Its values are either `0` or `1`, where values of `1`
+    indicate coordinates to be included.  It defaults to a piddle of all `1`'s.
 
     When used with `coords`, `mask` must be a piddle of shape _M_,
     where _M_ is the number of data elements in `coords`.
@@ -498,6 +559,11 @@ The following options are accepted:
     If true, the mask used in the final iteration will be returned
     in the iteration result object.
 
+- `save_weight` => _boolean_
+
+    If true, the weights used in the final iteration will be returned
+    in the iteration result object.
+
 - `weight` => _piddle_
 
     _Optional_. Data weights.  When used with `coords`, `weight` must
@@ -506,12 +572,14 @@ The following options are accepted:
     shape _NxM_, where _N_ is the number of dimensions in the data and
     _M_ is the number of data elements.
 
+    It defaults to a piddle of all `1`'s.
+
 Callbacks are provided with [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based objects which contain
 the data for the current iteration.  They should add data to the
 objects underlying hash which records particulars about their specific
 operation,
 
-### Workspace
+### Work Space
 
 Callbacks are passed [Hash::Wrap](https://metacpan.org/pod/Hash::Wrap) based iteration objects and a
 reference to a `$work` hash.  The iteration objects may have additional
@@ -544,8 +612,13 @@ the following additional attributes/methods:
 
 - `mask` => _piddle_
 
-    If the `$save_mask` option is true, this will be the
-    mask used to weight the data elements in the final iteration.
+    If the `$save_mask` option is true, this will be the final
+    inclusion mask.
+
+- `weight` => _piddle_
+
+    If the `$save_weight` option is true, this will be the final
+    weights.
 
 The value of the `center` attribute in the last iteration will be
 undefined if all of the elements have been clipped.
@@ -571,7 +644,7 @@ callbacks).
 
     The number of data elements used in the center.
 
-- `weight` => _number_
+- `total_weight` => _number_
 
     The combined weight of the data elements used to determine the center.
 
@@ -587,10 +660,11 @@ Before the first iteration:
 For each iteration:
 
 1. Creat a new iteration object by **copying** the old one.
-2. Call `calc_wmask`
+2. Call `calc_wmask`, with a copy of the initial mask and weights. `calc_mask`
+should update (in place) at least one of them
 3. Update summed weight and number of elements if `calc_wmask` sets them to `undef`.
-4. Call `calc_center`
-5. Call `is_converged`
+4. Call `calc_center` with the current mask and weights.
+5. Call `is_converged` with the current mask and weights.
 6. Call `log`
 7. Goto step 1 if not converged and iteration limit has not been reached.
 
@@ -635,16 +709,15 @@ Errors are represented as objects in the following classes:
 
 - Parameter Validation
 
-    These are unconditionally thrown.
-
-        PDL::Algorithm::Center::parameter
+    These are unconditionally thrown as
+    [PDL::Algorithm::Center::Failure::parameter](https://metacpan.org/pod/PDL::Algorithm::Center::Failure::parameter) objects.
 
 - Iteration
 
     These are stored in the result object's `error` attribute.
 
-        PDL::Algorithm::Center::iteration::limit_reached
-        PDL::Algorithm::Center::iteration::empty
+        PDL::Algorithm::Center::Failure::iteration::limit_reached
+        PDL::Algorithm::Center::Failure::iteration::empty
 
 The objects stringify to a failure message.
 
