@@ -4,7 +4,7 @@ PDL::Algorithm::Center - Various methods of finding the center of a sample
 
 # VERSION
 
-version 0.06
+version 0.07
 
 # DESCRIPTION
 
