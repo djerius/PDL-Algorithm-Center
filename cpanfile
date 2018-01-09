@@ -9,6 +9,7 @@ requires "Package::Stash" => "0";
 requires "Ref::Util" => "0";
 requires "Safe::Isa" => "0";
 requires "Scalar::Util" => "0";
+requires "Try::Tiny" => "0";
 requires "Type::Library" => "0";
 requires "Type::Params" => "0";
 requires "Type::Tiny" => "1.002001";
