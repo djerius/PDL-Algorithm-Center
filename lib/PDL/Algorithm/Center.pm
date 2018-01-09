@@ -549,12 +549,12 @@ sub sigma_clip {
 
     if ( defined $opt->{center} && is_arrayref( $opt->center ) ) {
 
-        my $icenter = pdl( @{ $opt->center } );
+        my $icenter = PDL->pdl( @{ $opt->center } );
 
         parameter_failure->throw( "<center> must have $ndims elements" )
           unless $icenter->nelem == $ndims;
 
-        my $defined = pdl( map { defined } @{ $opt->center } );
+        my $defined = PDL->pdl( map { defined } @{ $opt->center } );
 
         if ( $defined->not->any ) {
 
