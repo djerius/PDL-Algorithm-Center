@@ -108,6 +108,17 @@ subtest "center" => sub {
         'center a 1D piddle'
     ) or note $@;
 
+    ok(
+        lives {
+            sigma_clip(
+                %req,
+                coords => pdl( [1], [2] ),
+                center => [ 1.5 ],
+              )
+        },
+        'center a arrayref'
+    ) or note $@;
+
 
 };
 
