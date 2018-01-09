@@ -2,6 +2,13 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.06      2018-01-08 16:52:33-05:00 America/New_York
+
+  [ENHANCEMENT]
+
+    * now compatible with Perl 5.10.1
+
+
 0.05      2017-11-02 17:06:11-04:00 America/New_York
 
   [API BREAKAGE]
