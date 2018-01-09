@@ -13,6 +13,7 @@ our $VERSION = '0.06';
 
 use Carp;
 
+use Try::Tiny;
 use Safe::Isa;
 use Ref::Util qw< is_arrayref is_ref is_coderef  >;
 
@@ -26,7 +27,6 @@ use PDL::Algorithm::Center::Types -all;
 use Types::Standard -types;
 use Types::Common::Numeric -types;
 use Type::Params qw[ compile_named ];
-
 
 use PDL::Lite ();
 
@@ -446,7 +446,7 @@ only if the C<dtol> option was passed.
 
 =cut
 
-use Hash::Wrap {
+use Hash::Wrap ( {
     -as     => 'new_iteration',
     -create => 1,
     -class  => 'PDL::Algorithm::Center::Iteration',
@@ -466,7 +466,7 @@ use Hash::Wrap {
     -as     => 'return_iterate_results',
     -class  => 'PDL::Algorithm::Center::Iterate::Results',
     -create => 1,
-  };
+  } );
 
 
 sub sigma_clip {
@@ -485,12 +485,15 @@ sub sigma_clip {
         weight      => Optional [ Undef | Piddle_min1D_ne ],
     );
 
-    my $opt = do {
-        local $@;
-        my %opt = eval { %{ $check->( @_ ) } };
-        parameter_failure->throw( $@ ) if $@;
-        wrap_hash( \%opt );
-    };
+    my $opt;
+    my @argv = @_;
+    try {
+        my %opt = %{ $check->( @argv ); };
+        $opt = wrap_hash( \%opt );
+    }
+      catch {
+          parameter_failure->throw( $_ );
+      };
 
     $opt->{iterlim} //= 10;
 
