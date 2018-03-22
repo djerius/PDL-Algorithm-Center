@@ -19,7 +19,7 @@ use Ref::Util qw< is_arrayref is_ref is_coderef  >;
 
 use custom::failures;
 use Package::Stash;
-use Hash::Wrap { -as => '_wrap_hash' };
+use Hash::Wrap ( { -as => '_wrap_hash' } );
 
 use PDL::Algorithm::Center::Failure ':all';
 
