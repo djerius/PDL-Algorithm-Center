@@ -2,6 +2,13 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.08      2018-03-22 09:53:06-04:00 America/New_York
+
+  [BUG FIX]
+
+    * make compatible with Hash::Wrap 0.08 [RT#124855] ++SREZIC
+
+
 0.07      2018-01-10 14:47:37-05:00 America/New_York
 
   [DISTRIBUTION FIX]
