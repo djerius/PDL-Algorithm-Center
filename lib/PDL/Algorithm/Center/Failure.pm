@@ -1,5 +1,7 @@
 package PDL::Algorithm::Center::Failure;
 
+# ABSTRACT: Exception classes for PDL::Algorithm::Center
+
 use strict;
 use warnings;
 
