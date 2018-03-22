@@ -450,7 +450,6 @@ only if the C<dtol> option was passed.
 =cut
 
 use Hash::Wrap ( {
-        -create => 1,
         -as     => '_new_iteration',
         -class  => 'PDL::Algorithm::Center::Iteration',
         -clone  => sub {
@@ -468,7 +467,6 @@ use Hash::Wrap ( {
     {
         -as     => '_return_iterate_results',
         -class  => 'PDL::Algorithm::Center::Iterate::Results',
-        -create => 1,
     } );
 
 
