@@ -42,7 +42,8 @@ sub _weighted_mean_center {
 
     $total_weight //= $wmask->dsum;
 
-    iteration_empty_failure->throw( "weighted mean center: all elements excluded or sum(weight) == 0" )
+    iteration_empty_failure->throw(
+        "weighted mean center: all elements excluded or sum(weight) == 0" )
       if $total_weight == 0;
 
     return ( $coords * $wmask->dummy( 0 ) )->xchg( 0, 1 )->dsumover
@@ -73,7 +74,8 @@ sub _sigma_clip_initialize {
     $current->total_weight( $wmask->dsum );
     $current->nelem( $mask->sum );
 
-    iteration_empty_failure->throw( "sigma_clip initialize: all elements excluded or sum(weight) == 0" )
+    iteration_empty_failure->throw(
+        "sigma_clip initialize: all elements excluded or sum(weight) == 0" )
       if $current->total_weight == 0;
 
     $current->{sigma} = sqrt( ( $wmask * $r2 )->dsum / $current->total_weight );
@@ -98,7 +100,8 @@ sub _sigma_clip_calc_wmask {
     my $wmask = $work->{wmask};
     $wmask .= $mask * $weight;
 
-    iteration_empty_failure->throw( "sigma_clip calc_wmask: all elements excluded or sum(weight) == 0" )
+    iteration_empty_failure->throw(
+        "sigma_clip calc_wmask: all elements excluded or sum(weight) == 0" )
       if $iter->total_weight == 0;
 
     $iter->sigma( sqrt( ( $wmask * $r2 )->dsum / $iter->total_weight ) );
@@ -165,8 +168,8 @@ sub _sigma_clip_log_iteration {
 
     printf(
         join( ' ', @fmt ) . "\n",
-        $iter->iter, $iter->nelem, $iter->total_weight,
-        $iter->clip // 'undef', $iter->sigma, $iter->center->list
+        $iter->iter, $iter->nelem, $iter->total_weight, $iter->clip // 'undef',
+        $iter->sigma, $iter->center->list
     );
 }
 
@@ -447,35 +450,35 @@ only if the C<dtol> option was passed.
 =cut
 
 use Hash::Wrap ( {
-    -as     => 'new_iteration',
-    -create => 1,
-    -class  => 'PDL::Algorithm::Center::Iteration',
-    -clone  => sub {
-        my $hash = shift;
+        -as     => 'new_iteration',
+        -create => 1,
+        -class  => 'PDL::Algorithm::Center::Iteration',
+        -clone  => sub {
+            my $hash = shift;
 
-        return {
-            map {
-                my $value = $hash->{$_};
-                $value = $value->copy if $value->$_isa( 'PDL' );
-                ( $_, $value )
-            } keys %$hash
-        };
+            return {
+                map {
+                    my $value = $hash->{$_};
+                    $value = $value->copy if $value->$_isa( 'PDL' );
+                    ( $_, $value )
+                } keys %$hash
+            };
+        },
     },
-  },
-  {
-    -as     => 'return_iterate_results',
-    -class  => 'PDL::Algorithm::Center::Iterate::Results',
-    -create => 1,
-  } );
+    {
+        -as     => 'return_iterate_results',
+        -class  => 'PDL::Algorithm::Center::Iterate::Results',
+        -create => 1,
+    } );
 
 
 sub sigma_clip {
 
     state $check = compile_named(
-        center      => Optional [ ArrayRef [ Num | Undef ] | Center | CodeRef ],
-        clip        => Optional [PositiveNum],
-        coords      => Optional [Coords],
-        dtol        => PositiveNum,
+        center => Optional [ ArrayRef [ Num | Undef ] | Center | CodeRef ],
+        clip   => Optional [PositiveNum],
+        coords => Optional [Coords],
+        dtol   => PositiveNum,
         iterlim     => Optional [PositiveInt],
         log         => Optional [ Bool | CodeRef ],
         mask        => Optional [ Undef | Piddle_min1D_ne ],
@@ -491,9 +494,9 @@ sub sigma_clip {
         my %opt = %{ $check->( @argv ); };
         $opt = wrap_hash( \%opt );
     }
-      catch {
-          parameter_failure->throw( $_ );
-      };
+    catch {
+        parameter_failure->throw( $_ );
+    };
 
     $opt->{iterlim} //= 10;
 
@@ -1173,7 +1176,7 @@ sub iterate {
     my $total_weight;
 
     if ( defined $opt->mask ) {
-        $nelem = $opt->mask->sum;
+        $nelem        = $opt->mask->sum;
         $total_weight = ( $opt->mask * $opt->weight )->dsum;
     }
     else {
@@ -1201,7 +1204,7 @@ sub iterate {
 
     my @iteration;
 
-    my $work   = {};
+    my $work = {};
 
     # Set up initial state
 
@@ -1222,7 +1225,9 @@ sub iterate {
 
     eval {
 
-        $opt->initialize->( $opt->coords, $mask, $weight, $iteration[-1], $work );
+        $opt->initialize->(
+            $opt->coords, $mask, $weight, $iteration[-1], $work
+        );
 
         $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
 
@@ -1243,7 +1248,8 @@ sub iterate {
 
             $opt->calc_wmask->( $opt->coords, $mask, $weight, $current, $work );
 
-            $current->total_weight( ( $mask * $weight ) ->dsum ) unless defined $current->total_weight;
+            $current->total_weight( ( $mask * $weight )->dsum )
+              unless defined $current->total_weight;
             $current->nelem( $mask->sum )
               unless defined $current->nelem;
 
@@ -1251,7 +1257,9 @@ sub iterate {
               if $current->nelem == 0;
 
             $current->center(
-                $opt->calc_center->( $opt->coords, $mask, $weight, $current, $work ) );
+                $opt->calc_center->(
+                    $opt->coords, $mask, $weight, $current, $work
+                ) );
 
             $converged = $opt->is_converged->(
                 $opt->coords, $mask, $weight, $last, $current, $work
@@ -1271,7 +1279,7 @@ sub iterate {
 
     return_iterate_results( {
         %{ $iteration[-1] },
-        ( $opt->save_mask ? ( mask => $mask ) : () ),
+        ( $opt->save_mask   ? ( mask   => $mask )   : () ),
         ( $opt->save_weight ? ( weight => $weight ) : () ),
         iterations => \@iteration,
         success    => !$error,
