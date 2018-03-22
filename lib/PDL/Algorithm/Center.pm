@@ -19,7 +19,7 @@ use Ref::Util qw< is_arrayref is_ref is_coderef  >;
 
 use custom::failures;
 use Package::Stash;
-use Hash::Wrap;
+use Hash::Wrap { -as => '_wrap_hash' };
 
 use PDL::Algorithm::Center::Failure ':all';
 
@@ -450,8 +450,8 @@ only if the C<dtol> option was passed.
 =cut
 
 use Hash::Wrap ( {
-        -as     => 'new_iteration',
         -create => 1,
+        -as     => '_new_iteration',
         -class  => 'PDL::Algorithm::Center::Iteration',
         -clone  => sub {
             my $hash = shift;
@@ -466,7 +466,7 @@ use Hash::Wrap ( {
         },
     },
     {
-        -as     => 'return_iterate_results',
+        -as     => '_return_iterate_results',
         -class  => 'PDL::Algorithm::Center::Iterate::Results',
         -create => 1,
     } );
@@ -492,7 +492,7 @@ sub sigma_clip {
     my @argv = @_;
     try {
         my %opt = %{ $check->( @argv ); };
-        $opt = wrap_hash( \%opt );
+        $opt = _wrap_hash( \%opt );
     }
     catch {
         parameter_failure->throw( $_ );
@@ -1153,7 +1153,7 @@ sub iterate {
         save_weight  => Optional [Bool],
     );
 
-    my $opt = wrap_hash( $check->( @_ ) );
+    my $opt = _wrap_hash( $check->( @_ ) );
 
     $opt->{log}         //= undef;
     $opt->{save_mask}   //= 0;
@@ -1209,7 +1209,7 @@ sub iterate {
     # Set up initial state
 
     push @iteration,
-      new_iteration( {
+      _new_iteration( {
           center       => $opt->center,
           total_weight => $total_weight,
           nelem        => $nelem,
@@ -1229,13 +1229,13 @@ sub iterate {
             $opt->coords, $mask, $weight, $iteration[-1], $work
         );
 
-        $opt->log && $opt->log->( new_iteration( $iteration[-1] ) );
+        $opt->log && $opt->log->( _new_iteration( $iteration[-1] ) );
 
         while ( !$converged && ++$iteration <= $opt->iterlim ) {
 
             my $last = $iteration[-1];
 
-            my $current = new_iteration( $last );
+            my $current = _new_iteration( $last );
             push @iteration, $current;
 
             ++$current->{iter};
@@ -1265,7 +1265,7 @@ sub iterate {
                 $opt->coords, $mask, $weight, $last, $current, $work
             );
 
-            $opt->log && $opt->log->( new_iteration( $current ) );
+            $opt->log && $opt->log->( _new_iteration( $current ) );
         }
 
     };
@@ -1277,7 +1277,7 @@ sub iterate {
         msg => "iteration limit (@{[ $opt->iterlim ]}) reached" )
       if $iteration > $opt->iterlim;
 
-    return_iterate_results( {
+    _return_iterate_results( {
         %{ $iteration[-1] },
         ( $opt->save_mask   ? ( mask   => $mask )   : () ),
         ( $opt->save_weight ? ( weight => $weight ) : () ),
