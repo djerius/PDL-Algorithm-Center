@@ -24,7 +24,7 @@ use Hash::Wrap ( { -as => '_wrap_hash' } );
 use PDL::Algorithm::Center::Failure ':all';
 
 use PDL::Algorithm::Center::Types -all;
-use Types::Standard -types;
+use Types::Standard qw[ Optional ArrayRef Undef CodeRef Num ];
 use Types::Common::Numeric -types;
 use Type::Params qw[ compile_named ];
 
@@ -34,6 +34,9 @@ use Exporter 'import';
 
 our @EXPORT_OK = qw[ sigma_clip iterate ];
 
+# as of Types::Standard 1.003_003, Bool coerces any value into a boolean,
+# which we don't want.
+use constant Bool => Types::Standard::Bool->no_coercions();
 
 sub _weighted_mean_center {
     my ( $coords, $mask, $weight, $total_weight ) = @_;
