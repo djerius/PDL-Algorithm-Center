@@ -725,17 +725,10 @@ The objects stringify to a failure message.
 
 Please report any bugs or feature requests on the bugtracker website
 [https://rt.cpan.org/Public/Dist/Display.html?Name=PDL-Algorithm-Center](https://rt.cpan.org/Public/Dist/Display.html?Name=PDL-Algorithm-Center)
-or by email to
-[bug-PDL-Algorithm-Center@rt.cpan.org](mailto:bug-PDL-Algorithm-Center@rt.cpan.org).
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
 feature.
-
-# SOURCE
-
-The development version is on github at [https://github.com/djerius/pdl-algorithm-center](https://github.com/djerius/pdl-algorithm-center)
-and may be cloned from [git://github.com/djerius/pdl-algorithm-center.git](git://github.com/djerius/pdl-algorithm-center.git)
 
 # AUTHOR
 
